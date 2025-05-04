@@ -14,5 +14,3 @@ EXPOSE 5003
 ENV DB_URL=sqlite:///delivery.db
 # Run our App
 CMD ["python3","app.py"]
-
-ENTRYPOINT ["top", "-b"]
