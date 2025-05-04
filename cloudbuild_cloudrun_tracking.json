@@ -31,7 +31,7 @@
        "args": [
         "run",
         "deploy",
-        "delivery-service",
+        "tracking-service",
         "--image",
         "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/trackingservice-api:0.0.1",
         "--region",
