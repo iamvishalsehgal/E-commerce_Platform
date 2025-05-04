@@ -35,7 +35,7 @@ class Tracking:
                 "tracking_id": tracking.id,
                 "latitude": tracking.latitude,
                 "longitude": tracking.longitude,
-                "datetime": tracking.datetime
+                "update_time": tracking.update_time
             }
             session.close()
             return jsonify(text_out), 200
@@ -51,7 +51,7 @@ class Tracking:
         if tracking:
             tracking.latitude = latitude
             tracking.longitude = longitude
-            tracking.datetime = datetime.now()
+            tracking.update_time = datetime.now()
             session.commit()
             session.close()
             return jsonify({'message': 'Tracking info updated'}), 200

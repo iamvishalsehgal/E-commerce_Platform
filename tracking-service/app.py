@@ -22,9 +22,10 @@ def get_tracking_status(tracking_id):
 
 @app.route("/tracking/<tracking_id>", methods=["PUT"])
 def update_tracking_status(tracking_id):
-    latitude = request.args.get('status')
+    latitude = request.args.get('latitude')
     longitude = request.args.get('longitude')
-    return Tracking.update(tracking_id, latitude, longitude)
+    return Tracking.put(tracking_id, latitude, longitude)
 
 if __name__ == '__main__':
-    app.run(port=int(os.environ.get("PORT", 5003)), host='0.0.0.0', debug=True)
+    #app.run(port=int(os.environ.get("PORT", 5003)), host='0.0.0.0', debug=True)
+    app.run(port=int(os.environ.get("PORT", 5003)), host='0.0.0.0', debug=True, use_reloader=False)
