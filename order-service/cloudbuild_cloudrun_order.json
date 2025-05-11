@@ -1,12 +1,16 @@
 {
   "steps": [
     {
-      "name": "gcr.io/cloud-builders/docker",
+      "name": "python:3.10.8-slim-buster",
+      "entrypoint": "/bin/sh",
       "args": [
-        "build",
-        "-t",
-        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1", 
-        "./order-service"
+        "-c",
+        "apt-get update && apt-get install -y gcc python3-dev && "  
+        "cd ./order-service && ",
+        "python -m pip install --upgrade pip && ", 
+        "python -m venv .myenv && ",
+        ". .myenv/bin/activate && ",
+        "pip install -r requirements.txt"
       ]
     },
     {
@@ -14,7 +18,7 @@
       "args": [
         "build",
         "-t",
-        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/orderservice-api:0.0.1",
+        "${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/labrepo/orderservice-api:0.0.1",
         "./order-service"
       ]
     },
@@ -22,7 +26,7 @@
       "name": "gcr.io/cloud-builders/docker",
       "args": [
         "push",
-        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/orderservice-api:0.0.1"
+        "${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/labrepo/orderservice-api:0.0.1"
       ]
     },
     {
@@ -33,7 +37,7 @@
         "deploy",
         "order-service",
         "--image",
-        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/orderservice-api:0.0.1",
+        "${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/labrepo/orderservice-api:0.0.1",
         "--region",
         "us-central1",
         "--platform",
@@ -46,7 +50,7 @@
         "4G",
         "--allow-unauthenticated",
         "--update-env-vars",
-        "DB_URL=bigquery://$PROJECT_ID/group2_orderdb"
+        "DB_URL=bigquery://${_PROJECT_ID}/group2_orderdb"
       ]
     }
   ],
