@@ -2,7 +2,7 @@
   "steps": [
     {
       "name": "gcr.io/cloud-builders/docker",
-      "args": ["build", "-t", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1", "./inventory-service"]
+      "args": ["build", "-t", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1", "inventory-service/"]
     },
     {
       "name": "gcr.io/cloud-builders/docker",
