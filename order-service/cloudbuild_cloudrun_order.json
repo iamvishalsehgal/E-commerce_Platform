@@ -1,11 +1,12 @@
 {
   "steps": [
     {
-      "name": "python:3.10.8-slim-buster",
-      "entrypoint": "/bin/sh",
+      "name": "gcr.io/cloud-builders/docker",
       "args": [
-        "-c",
-        "cd ./order-service && python -m venv .myenv && . .myenv/bin/activate && pip install -r requirements.txt"
+        "build",
+        "-t",
+        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1", 
+        "./order-service"
       ]
     },
     {
