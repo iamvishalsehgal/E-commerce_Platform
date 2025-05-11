@@ -17,10 +17,10 @@ def get_inventory(product_id):
     return Inventory.get(product_id)
 
 @app.route("/inventory/<product_id>", methods=["PUT"])
-def update_inventory_stock(product_id):
-    new_stock = request.args.get('stock')
-    return Inventory.update_stock(product_id, int(new_stock))
+def update_inventory(product_id):
+    quantity = request.args.get('quantity')
+    location = request.args.get('location')
+    return Inventory.update(product_id, quantity, location)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5005))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(port=int(os.environ.get("PORT", 5004)), host='0.0.0.0', debug=True)

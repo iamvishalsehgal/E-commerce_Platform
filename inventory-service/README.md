@@ -1,6 +1,6 @@
 # Inventory Service
 ### Deployment to GCP
-1. Create BigQuery dataset `group2_inventorydb` in project
-2. Open port 5005:
+1. Create a BigQuery dataset `group2_inventorydb` in your project.
+2. Open port 5004 in the firewall:
    ```bash
-   gcloud compute firewall-rules create flask-port-5005 --allow tcp:5005
+   gcloud compute firewall-rules create flask-port-5004 --allow tcp:5004
