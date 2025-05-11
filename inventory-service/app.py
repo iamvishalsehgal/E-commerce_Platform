@@ -1,31 +1,26 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import os
+from flask import Flask, request
+from db import Base, engine
+from resources.inventory import Inventory
 
 app = Flask(__name__)
-CORS(app)
+app.config["DEBUG"] = True
+Base.metadata.create_all(engine)
 
-# In-memory inventory
-inventory = {1: {"stock": 10}}
+@app.route("/inventory/register", methods=["POST"])
+def register_inventory():
+    req_data = request.get_json()
+    return Inventory.create(req_data)
 
-@app.route("/inventory/check/<int:product_id>", methods=["GET"])
-def check_inventory(product_id):
-    available = inventory.get(product_id, {}).get("stock", 0) > 0
-    return jsonify({"product_id": product_id, "available": available})
+@app.route("/inventory/<product_id>", methods=["GET"])
+def get_inventory(product_id):
+    return Inventory.get(product_id)
 
-@app.route("/inventory/add", methods=["POST"])
-def add_inventory():
-    data = request.json
-    product_id = data["product_id"]
-    inventory[product_id] = {"stock": data["stock"]}
-    return jsonify({"product_id": product_id, "status": "added"})
+@app.route("/inventory/<product_id>", methods=["PUT"])
+def update_inventory_stock(product_id):
+    new_stock = request.args.get('stock')
+    return Inventory.update_stock(product_id, int(new_stock))
 
-@app.route("/inventory/update/<int:product_id>", methods=["PUT"])
-def update_inventory(product_id):
-    data = request.json
-    if product_id in inventory:
-        inventory[product_id]["stock"] = data["quantity"]
-        return jsonify({"product_id": product_id, "new_stock": data["quantity"]})
-    return jsonify({"error": "Product not found"}), 404
-
-if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5005))
+    app.run(host='0.0.0.0', port=port, debug=False)
