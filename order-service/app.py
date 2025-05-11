@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from db import Base, engine
 from resources.order import Order
@@ -9,27 +9,34 @@ app.config["DEBUG"] = True
 CORS(app)
 Base.metadata.create_all(engine)
 
-@app.route("/order/create", methods=["POST"])
+# CORE: Order Management
+@app.route("/orders", methods=["POST"])
 def create_order():
-    req_data = request.get_json()
-    return Order.create(req_data)
+    """Create new order"""
+    return Order.create(request.get_json())
 
-@app.route("/order/status/<int:order_id>", methods=["GET"])
-def get_order_status(order_id):
+@app.route("/orders/<order_id>", methods=["GET"])
+def get_status(order_id):
+    """Get order status"""
     return Order.get(order_id)
 
-@app.route("/order/cancel/<int:order_id>", methods=["PUT"])
+@app.route("/orders/<order_id>/cancel", methods=["PUT"])
 def cancel_order(order_id):
+    """Cancel an order"""
     return Order.update_status(order_id, "cancelled")
 
-@app.route("/order/validate/<int:order_id>", methods=["PUT"])
+@app.route("/orders/<order_id>/validate", methods=["PUT"])
 def validate_order(order_id):
+    """Validate order for processing"""
     return Order.update_status(order_id, "validated")
 
-@app.route("/order/delivery-status/<int:order_id>", methods=["PUT"])
-def update_delivery_status(order_id):
-    status = request.args.get('status')
-    return Order.update_delivery_status(order_id, status)
+@app.route("/orders/<order_id>/delivery", methods=["PUT"])
+def update_delivery(order_id):
+    """Update delivery status"""
+    return Order.update_delivery_status(
+        order_id,
+        request.args.get("status")
+    )
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5004)), debug=False)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5004)))
