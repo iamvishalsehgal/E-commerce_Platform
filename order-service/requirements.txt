@@ -3,6 +3,6 @@ sqlalchemy
 sqlalchemy-utils
 sqlalchemy-bigquery
 gunicorn
-google-cloud-pubsub  
-google-cloud-bigquery-storage
+google-cloud-pubsub
 flask-cors
+google-cloud-bigquery-storage
