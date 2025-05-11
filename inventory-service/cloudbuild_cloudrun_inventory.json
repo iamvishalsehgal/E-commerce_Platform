@@ -2,10 +2,10 @@
   "steps": [
     {
       "name": "python:3.10.8-slim-buster",
-      "entrypoint": "/bin/sh",
+      "entrypoint": "sh",
       "args": [
         "-c",
-        "cd ./inventory-service && python -m venv .myenv && . .myenv/bin/activate && pip install -r requirements.txt"
+        "apt-get update && apt-get install -y gcc python3-dev && python -m pip install --upgrade pip && pip install -r requirements.txt"
       ]
     },
     {
@@ -14,7 +14,7 @@
         "build",
         "-t",
         "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1",
-        "./inventory-service"
+        "."
       ]
     },
     {
@@ -45,7 +45,7 @@
         "4G",
         "--allow-unauthenticated",
         "--update-env-vars",
-        "DB_URL=bigquery://$PROJECT_ID/group2_inventorydb"
+        "DB_URL=bigquery://$PROJECT_ID/group2_inventorydb?location=US"
       ]
     }
   ],

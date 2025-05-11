@@ -4,3 +4,4 @@ sqlalchemy-utils
 sqlalchemy-bigquery
 gunicorn
 google-cloud-bigquery-storage
+google-auth
