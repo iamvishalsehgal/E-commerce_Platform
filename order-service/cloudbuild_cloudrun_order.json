@@ -5,9 +5,7 @@
       "entrypoint": "/bin/sh",
       "args": [
         "-c",
-        "apt-get update && apt-get install -y gcc python3-dev libpq-dev && ", 
-        "pip install --upgrade pip && ",
-        "pip install -r requirements.txt"
+        "apt-get update && apt-get install -y gcc python3-dev libpq-dev && pip install --upgrade pip setuptools wheel && pip install -r requirements.txt"
       ]
     },
     {
@@ -15,15 +13,15 @@
       "args": [
         "build",
         "-t",
-        "${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/labrepo/orderservice-api:0.0.1",
-        "./order-service"
+        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1",
+        "."
       ]
     },
     {
       "name": "gcr.io/cloud-builders/docker",
       "args": [
         "push",
-        "${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/labrepo/orderservice-api:0.0.1"
+        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1"
       ]
     },
     {
@@ -34,20 +32,16 @@
         "deploy",
         "order-service",
         "--image",
-        "${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/labrepo/orderservice-api:0.0.1",
+        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1",
         "--region",
         "us-central1",
         "--platform",
         "managed",
         "--port",
         "5004",
-        "--cpu",
-        "2",
-        "--memory",
-        "4G",
         "--allow-unauthenticated",
         "--update-env-vars",
-        "DB_URL=bigquery://${_PROJECT_ID}/group2_orderdb"
+        "DB_URL=bigquery://de2024-435420/group2_orderdb"
       ]
     }
   ],
