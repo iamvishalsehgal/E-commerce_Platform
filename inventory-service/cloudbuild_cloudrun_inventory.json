@@ -12,6 +12,7 @@
       "name": "gcr.io/cloud-builders/docker",
       "args": [
         "build",
+        "--no-cache",
         "-t",
         "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
         "."
