@@ -1,25 +1,44 @@
 {
   "steps": [
     {
-      "name": "gcr.io/cloud-builders/docker",
-      "args": ["build", "-t", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1", "inventory-service/"]
+      "name": "python:3.10.8-slim-buster",
+      "entrypoint": "/bin/sh",
+      "args": [
+        "-c",
+        "apt-get update && apt-get install -y gcc python3-dev && pip install -r requirements.txt"
+      ]
     },
     {
       "name": "gcr.io/cloud-builders/docker",
-      "args": ["push", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1"]
+      "args": [
+        "build",
+        "-t",
+        "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
+        "."
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1"
+      ]
     },
     {
       "name": "gcr.io/google.com/cloudsdktool/cloud-sdk",
       "entrypoint": "gcloud",
       "args": [
         "run", "deploy", "inventory-service",
-        "--image", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1",
+        "--image", "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
         "--region", "us-central1",
         "--platform", "managed",
         "--allow-unauthenticated",
         "--port", "8080",
-        "--update-env-vars", "DB_URL=bigquery://$PROJECT_ID/group2_inventorydb"
+        "--update-env-vars", "DB_URL=bigquery://de2024-435420/group2_inventorydb"
       ]
     }
-  ]
+  ],
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY"
+  }
 }

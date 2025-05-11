@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from flask import jsonify
+from flask import jsonify, request
 from daos.inventory_dao import InventoryDAO
 from db import Session
 
@@ -17,7 +17,7 @@ class Inventory:
                 product_id=product_id,
                 quantity=body['quantity'],
                 location=body['location'],
-                last_updated = datetime.now(timezone.utc)
+                last_updated=datetime.now(timezone.utc)
             )
             session.add(new_inventory)
             session.commit()
@@ -28,25 +28,81 @@ class Inventory:
     @staticmethod
     def get(product_id):
         session = Session()
-        inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
-        if inventory:
-            response = {
-                "product_id": inventory.product_id,
-                "quantity": inventory.quantity,
-                "location": inventory.location,
-                "last_updated": inventory.last_updated
-            }
-            session.close()
-            return jsonify(response), 200
-        else:
-            session.close()
+        try:
+            inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
+            if inventory:
+                return jsonify({
+                    "product_id": inventory.product_id,
+                    "quantity": inventory.quantity,
+                    "location": inventory.location,
+                    "last_updated": inventory.last_updated.isoformat()
+                }), 200
             return jsonify({'message': f'Product {product_id} not found'}), 404
+        finally:
+            session.close()
 
     @staticmethod
     def update(product_id, quantity, location):
         session = Session()
-        inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
-        if inventory:
-            inventory.quantity = quantity
-            inventory.location = location
-           
+        try:
+            inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
+            if inventory:
+                inventory.quantity = quantity
+                inventory.location = location
+                inventory.last_updated = datetime.now(timezone.utc)
+                session.commit()
+                return jsonify({"product_id": product_id, "new_quantity": quantity}), 200
+            return jsonify({"error": "Product not found"}), 404
+        except Exception as e:
+            session.rollback()
+            return jsonify({"error": str(e)}), 400
+        finally:
+            session.close()
+
+    @staticmethod
+    def check_availability(product_id):
+        session = Session()
+        try:
+            inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
+            available = inventory.quantity > 0 if inventory else False
+            return jsonify({"product_id": product_id, "available": available}), 200
+        finally:
+            session.close()
+
+    @staticmethod
+    def add_inventory():
+        session = Session()
+        try:
+            data = request.get_json()
+            inventory = InventoryDAO(
+                product_id=data['product_id'],
+                quantity=data['quantity'],
+                location=data.get('location', 'warehouse'),
+                last_updated=datetime.now(timezone.utc)
+            )
+            session.add(inventory)
+            session.commit()
+            return jsonify({"product_id": data['product_id'], "status": "added"}), 201
+        except Exception as e:
+            session.rollback()
+            return jsonify({"error": str(e)}), 400
+        finally:
+            session.close()
+
+    @staticmethod
+    def update_stock(product_id):
+        session = Session()
+        try:
+            data = request.get_json()
+            inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
+            if inventory:
+                inventory.quantity = data['quantity']
+                inventory.last_updated = datetime.now(timezone.utc)
+                session.commit()
+                return jsonify({"product_id": product_id, "new_stock": data['quantity']}), 200
+            return jsonify({"error": "Product not found"}), 404
+        except Exception as e:
+            session.rollback()
+            return jsonify({"error": str(e)}), 400
+        finally:
+            session.close()
