@@ -1,55 +1,25 @@
 {
   "steps": [
     {
-      "name": "python:3.10.8-slim-buster",
-      "entrypoint": "/bin/sh",
-      "args": [
-        "-c",
-        "cd ./inventory-service && python -m venv .myenv && . .myenv/bin/activate && pip install -r requirements.txt"
-      ]
+      "name": "gcr.io/cloud-builders/docker",
+      "args": ["build", "-t", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1", "./inventory-service"]
     },
     {
       "name": "gcr.io/cloud-builders/docker",
-      "args": [
-        "build",
-        "-t",
-        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1",
-        "./inventory-service"
-      ]
-    },
-    {
-      "name": "gcr.io/cloud-builders/docker",
-      "args": [
-        "push",
-        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1"
-      ]
+      "args": ["push", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1"]
     },
     {
       "name": "gcr.io/google.com/cloudsdktool/cloud-sdk",
       "entrypoint": "gcloud",
       "args": [
-        "run",
-        "deploy",
-        "inventory-service",
-        "--image",
-        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1",
-        "--region",
-        "us-central1",
-        "--platform",
-        "managed",
-        "--port",
-        "5004",
-        "--cpu",
-        "2",
-        "--memory",
-        "4G",
+        "run", "deploy", "inventory-service",
+        "--image", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:0.0.1",
+        "--region", "us-central1",
+        "--platform", "managed",
         "--allow-unauthenticated",
-        "--update-env-vars",
-        "DB_URL=bigquery://$PROJECT_ID/group2_inventorydb"
+        "--port", "8080",
+        "--update-env-vars", "DB_URL=bigquery://$PROJECT_ID/group2_inventorydb"
       ]
     }
-  ],
-  "options": {
-    "logging": "CLOUD_LOGGING_ONLY"
-  }
+  ]
 }
