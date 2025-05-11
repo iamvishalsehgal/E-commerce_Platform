@@ -12,7 +12,6 @@
       "name": "gcr.io/cloud-builders/docker",
       "args": [
         "build",
-        "--no-cache",
         "-t",
         "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
         "."
@@ -29,13 +28,22 @@
       "name": "gcr.io/google.com/cloudsdktool/cloud-sdk",
       "entrypoint": "gcloud",
       "args": [
-        "run", "deploy", "inventory-service",
-        "--image", "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
-        "--region", "us-central1",
-        "--platform", "managed",
+        "run",
+        "deploy",
+        "inventory-service",
+        "--image",
+        "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
+        "--region",
+        "us-central1",
+        "--platform",
+        "managed",
         "--allow-unauthenticated",
-        "--port", "8080",
-        "--update-env-vars", "DB_URL=bigquery://de2024-435420/group2_inventorydb"
+        "--port",
+        "8080",
+        "--set-env-vars",
+        "DB_URL=bigquery://de2024-435420/group2_inventorydb",
+        "--update-env-vars",
+        "PROJECT_ID=de2024-435420"
       ]
     }
   ],
