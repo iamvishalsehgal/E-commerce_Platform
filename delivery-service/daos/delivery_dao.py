@@ -4,13 +4,12 @@ from db import Base
 
 class DeliveryDAO(Base):
     __tablename__ = 'deliveries'
-    id = Column(Integer, primary_key=True)  # Auto-generated primary key
+    id = Column(Integer, primary_key=True)
     customer_id = Column(String)
     provider_id = Column(String)
     package_id = Column(String)
-    delivery_time = Column(DateTime)
-    status = Column(String)  # e.g., "pending", "shipped", "delivered"
-
+    delivery_time = Column(String)  # Use String for BigQuery compatibility
+    status = Column(String)
     def __init__(self, id, customer_id, provider_id, package_id, delivery_time, status="pending"):
         self.id = id
         self.customer_id = customer_id
