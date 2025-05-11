@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Numeric
+from sqlalchemy import Column, String, Integer, DateTime, Numeric, TIMESTAMP
 from sqlalchemy.orm import relationship, backref
 from db import Base
 
@@ -7,7 +7,7 @@ class InventoryDAO(Base):
     product_id = Column(String, primary_key=True)  # Unique product identifier
     quantity = Column(Integer)
     location = Column(String)
-    last_updated = Column(DateTime)
+    last_updated = Column(TIMESTAMP)
 
     def __init__(self, product_id, quantity, location, last_updated):
         self.product_id = product_id

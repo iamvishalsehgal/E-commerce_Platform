@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import jsonify
 from daos.inventory_dao import InventoryDAO
 from db import Session
@@ -17,7 +17,7 @@ class Inventory:
                 product_id=product_id,
                 quantity=body['quantity'],
                 location=body['location'],
-                last_updated=datetime.now()
+                last_updated = datetime.now(timezone.utc)
             )
             session.add(new_inventory)
             session.commit()
