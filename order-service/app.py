@@ -6,7 +6,7 @@ from resources.order import Order
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
-CORS(app) 
+CORS(app)
 Base.metadata.create_all(engine)
 
 @app.route("/order/create", methods=["POST"])
@@ -25,6 +25,11 @@ def cancel_order(order_id):
 @app.route("/order/validate/<int:order_id>", methods=["PUT"])
 def validate_order(order_id):
     return Order.update_status(order_id, "validated")
+
+@app.route("/order/delivery-status/<int:order_id>", methods=["PUT"])
+def update_delivery_status(order_id):
+    status = request.args.get('status')
+    return Order.update_delivery_status(order_id, status)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5004)), debug=False)

@@ -9,7 +9,7 @@ class OrderDAO(Base):
     product_id = Column(String(50))
     quantity = Column(Integer)
     order_date = Column(DateTime)
-    status = Column(String(20))  # e.g., "Pending", "Shipped", "Delivered"
+    status = Column(String(20))
 
     def __init__(self, id, customer_id, product_id, quantity, order_date, status="Pending"):
         self.id = id
