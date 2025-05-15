@@ -5,3 +5,5 @@ sqlalchemy-utils
 sqlalchemy-bigquery
 gunicorn
 python-dateutil 
+google-cloud-pubsub
+google-cloud-bigquery-storage

@@ -1,12 +1,20 @@
 from datetime import datetime
+import json
+import os
 from flask import jsonify, request
 from google.cloud import pubsub_v1
 from daos.order_dao import OrderDAO
 from db import Session
+import logging
 
+logger = logging.getLogger(__name__)
+
+# Pub/Sub configuration
+PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
+ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
 
 publisher = pubsub_v1.PublisherClient()
-topic_path = publisher.topic_path("de2024-435420", "order-events")
+topic_path = publisher.topic_path(PROJECT_ID, ORDER_EVENTS_TOPIC)
 
 class Order:
     @staticmethod
@@ -28,8 +36,17 @@ class Order:
             session.add(order)
             session.commit()
             
-            # Publish creation event
-            publisher.publish(topic_path, f"OrderCreated:{order_id}".encode("utf-8"))
+            # Publish detailed order created event with full order details
+            event_data = json.dumps({
+                "event": "OrderCreated",
+                "order_id": order_id,
+                "customer_id": body['customer_id'],
+                "product_id": body['product_id'],
+                "quantity": body['quantity'],
+                "timestamp": datetime.now().isoformat()
+            })
+            publisher.publish(topic_path, event_data.encode('utf-8'))
+            
             return jsonify({'order_id': order.id}), 200
             
         except Exception as e:
@@ -61,12 +78,41 @@ class Order:
         try:
             order = session.query(OrderDAO).get(o_id)
             if order:
+                previous_status = order.status
                 order.status = new_status
                 session.commit()
                 
-                # Publish status change event
-                event_type = "OrderValidated" if new_status == "validated" else "OrderCancelled"
-                publisher.publish(topic_path, f"{event_type}:{o_id}".encode("utf-8"))
+                # Publish detailed status change event
+                event_data = json.dumps({
+                    "event": "OrderStatusChanged",
+                    "order_id": o_id,
+                    "previous_status": previous_status,
+                    "new_status": new_status,
+                    "product_id": order.product_id,
+                    "quantity": order.quantity,
+                    "timestamp": datetime.now().isoformat()
+                })
+                publisher.publish(topic_path, event_data.encode('utf-8'))
+                
+                # Special case events
+                if new_status == "validated":
+                    validated_event = json.dumps({
+                        "event": "OrderValidated",
+                        "order_id": o_id,
+                        "product_id": order.product_id,
+                        "quantity": order.quantity
+                    })
+                    publisher.publish(topic_path, validated_event.encode('utf-8'))
+                    
+                elif new_status == "cancelled":
+                    cancelled_event = json.dumps({
+                        "event": "OrderCancelled",
+                        "order_id": o_id,
+                        "product_id": order.product_id,
+                        "quantity": order.quantity
+                    })
+                    publisher.publish(topic_path, cancelled_event.encode('utf-8'))
+                
                 return jsonify({'status': new_status}), 200
             return jsonify({'error': 'Order not found'}), 404
         except Exception as e:
@@ -86,19 +132,21 @@ class Order:
                 if new_status not in valid_statuses:
                     return jsonify({"error": "Invalid delivery status"}), 400
                 
+                previous_status = order.status
                 order.status = new_status
                 session.commit()
                 
                 # Publish delivery event
-                event_map = {
-                    "shipped": "OrderShipped",
-                    "out_for_delivery": "OrderOutForDelivery",
-                    "delivered": "OrderDelivered"
-                }
-                publisher.publish(
-                    topic_path, 
-                    f"{event_map[new_status]}:{order_id}".encode("utf-8")
-                )
+                event_data = json.dumps({
+                    "event": f"Order{new_status.capitalize()}",
+                    "order_id": order_id,
+                    "previous_status": previous_status,
+                    "customer_id": order.customer_id,
+                    "product_id": order.product_id,
+                    "timestamp": datetime.now().isoformat()
+                })
+                publisher.publish(topic_path, event_data.encode('utf-8'))
+                
                 return jsonify({"status": new_status}), 200
             return jsonify({"error": "Order not found"}), 404
         except Exception as e:

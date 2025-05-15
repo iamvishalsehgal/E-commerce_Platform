@@ -6,7 +6,7 @@ from sqlalchemy_utils import database_exists, create_database
 
 # Use environment variable for DB connection (BigQuery)
 if 'DB_URL' in os.environ:
-    db_url = os.environ['DB_URL']
+    db_url = os.environ['DB_URL', 'bigquery://de2024-435420/group2_orderdb']
 else:
     db_url = 'sqlite:///order.db'  # Fallback for local testing
 

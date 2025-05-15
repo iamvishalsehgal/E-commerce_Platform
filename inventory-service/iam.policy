@@ -1,0 +1,145 @@
+bindings:
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  role: roles/aiplatform.admin
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-aiplatform-cc.iam.gserviceaccount.com
+  role: roles/aiplatform.customCodeServiceAgent
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-vertex-op.iam.gserviceaccount.com
+  role: roles/aiplatform.onlinePredictionServiceAgent
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-aiplatform.iam.gserviceaccount.com
+  role: roles/aiplatform.serviceAgent
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:service-1070510678521@gcp-sa-artifactregistry.iam.gserviceaccount.com
+  role: roles/artifactregistry.serviceAgent
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/artifactregistry.writer
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:de2024-435420@appspot.gserviceaccount.com
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/bigquery.admin
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:inventory-service@de2024-435420.iam.gserviceaccount.com
+  - serviceAccount:tracking-service-account@de2024-435420.iam.gserviceaccount.com
+  role: roles/bigquery.dataEditor
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  role: roles/bigquery.dataOwner
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  role: roles/bigquery.jobUser
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  role: roles/cloudbuild.builds.builder
+- members:
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  role: roles/cloudbuild.builds.editor
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-cloudbuild.iam.gserviceaccount.com
+  role: roles/cloudbuild.serviceAgent
+- members:
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/cloudfunctions.admin
+- members:
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  role: roles/cloudfunctions.developer
+- members:
+  - serviceAccount:service-1070510678521@gcf-admin-robot.iam.gserviceaccount.com
+  role: roles/cloudfunctions.serviceAgent
+- members:
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  role: roles/compute.instanceAdmin.v1
+- members:
+  - serviceAccount:service-1070510678521@compute-system.iam.gserviceaccount.com
+  role: roles/compute.serviceAgent
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-gkenode.iam.gserviceaccount.com
+  role: roles/container.defaultNodeServiceAgent
+- members:
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  role: roles/container.developer
+- members:
+  - serviceAccount:service-1070510678521@container-engine-robot.iam.gserviceaccount.com
+  role: roles/container.serviceAgent
+- members:
+  - serviceAccount:service-1070510678521@containerregistry.iam.gserviceaccount.com
+  role: roles/containerregistry.ServiceAgent
+- members:
+  - serviceAccount:service-1070510678521@dataflow-service-producer-prod.iam.gserviceaccount.com
+  role: roles/dataflow.serviceAgent
+- members:
+  - serviceAccount:service-1070510678521@dataproc-accounts.iam.gserviceaccount.com
+  role: roles/dataproc.serviceAgent
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudservices.gserviceaccount.com
+  - serviceAccount:de2024-435420@appspot.gserviceaccount.com
+  role: roles/editor
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  role: roles/eventarc.admin
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-eventarc.iam.gserviceaccount.com
+  role: roles/eventarc.serviceAgent
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/iam.serviceAccountUser
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/logging.logWriter
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-networkconnectivity.iam.gserviceaccount.com
+  role: roles/networkconnectivity.serviceAgent
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-notebooks.iam.gserviceaccount.com
+  role: roles/notebooks.serviceAgent
+- members:
+  - user:d.chen_2@tilburguniversity.edu
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/owner
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  role: roles/pubsub.admin
+- members:
+  - serviceAccount:de2024-435420@appspot.gserviceaccount.com
+  - serviceAccount:service-1070510678521@gs-project-accounts.iam.gserviceaccount.com
+  role: roles/pubsub.publisher
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-pubsub.iam.gserviceaccount.com
+  role: roles/pubsub.serviceAgent
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/run.admin
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - user:v.sehgal@tilburguniversity.edu
+  role: roles/run.developer
+- members:
+  - serviceAccount:service-1070510678521@serverless-robot-prod.iam.gserviceaccount.com
+  role: roles/run.serviceAgent
+- members:
+  - serviceAccount:1070510678521-compute@developer.gserviceaccount.com
+  - serviceAccount:1070510678521@cloudbuild.gserviceaccount.com
+  role: roles/storage.admin
+- members:
+  - serviceAccount:service-1070510678521@gcp-sa-workflows.iam.gserviceaccount.com
+  role: roles/workflows.serviceAgent
+etag: BwY1IRbB5dI=
+version: 1
