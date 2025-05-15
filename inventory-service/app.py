@@ -50,36 +50,26 @@ def deduct_inventory(product_id):
 
 # Event handling logic
 def process_order_event(message):
-    """Process events from the order service"""
     try:
         event_data = message.data.decode('utf-8')
         logger.info(f"Received order event: {event_data}")
+        event_json = json.loads(event_data)
+        event_type = event_json.get("event")
         
-        # Parse event type and data
-        if ':' in event_data:
-            event_type, order_id = event_data.split(':', 1)
-            
-            # Handle different event types
-            if event_type == "OrderCreated":
-                # In choreography, we'd retrieve order details and act on them
-                # This would typically be an async call to the Order API or from event payload
-                logger.info(f"Processing order creation for Order ID: {order_id}")
-                # For now, we're just logging the event
-                
-            elif event_type == "OrderValidated":
-                # In real implementation, we might update inventory reservation
-                logger.info(f"Order {order_id} has been validated")
-                
-            elif event_type == "OrderCancelled":
-                # In real implementation, release reserved inventory
-                logger.info(f"Order {order_id} has been cancelled - inventory should be restored")
-                
-        # Acknowledge message
+        if event_type == "OrderValidated":
+            product_id = event_json.get("product_id")
+            quantity = event_json.get("quantity")
+            order_id = event_json.get("order_id")
+            if product_id and quantity:
+                logger.info(f"Attempting to deduct {quantity} of product {product_id} for order {order_id}")
+                success = Inventory.deduct_inventory(product_id, quantity)
+                if success:
+                    logger.info(f"Successfully deducted inventory for order {order_id}")
+                else:
+                    logger.warning(f"Failed to deduct inventory for order {order_id}")
         message.ack()
-        
     except Exception as e:
         logger.error(f"Error processing event: {str(e)}")
-        # Handle error, possibly nack the message
         message.nack()
 
 def start_subscriber():
