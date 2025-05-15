@@ -1,0 +1,22 @@
+main:
+  param: [input]
+  steps:
+    - initRegisterDeliveryURLVar:
+        assign:
+          - RegisterDeliveryURL: ${"uri?orderid=" + input.orderId + "&senderinfo=" + input.senderInfo + "&receiverinfo=" + input.receiverInfo}
+    - registerDelivery:
+        call: http.get
+        args:
+          url: ${RegisterDeliveryURL}
+        result: RegisterDeliveryRes
+    - initGenerateShippingLabelURLVar:
+        assign:
+          - GenerateShippingLabelURL: ${"uri?orderid=" + input.orderId + "&senderinfo=" + input.senderInfo + "&receiverinfo=" + input.receiverInfo + "&deliveryid=" + RegisterDeliveryRes.deliveryId}
+    - generateShippingLabel:
+        call: http.get
+        args:
+          url: ${GenerateShippingLabelURL}
+        result: GenerateShippingLabelRes
+    - return_message:
+        return: ${GenerateShippingLabelRes}
+
