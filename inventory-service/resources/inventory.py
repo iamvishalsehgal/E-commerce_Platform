@@ -104,47 +104,49 @@ class Inventory:
             session.close()
 
     @staticmethod
-    def deduct(product_id):
+    def deduct_inventory(product_id, deduct_quantity):
         session = Session()
         try:
-            data = request.get_json()
-            deduct_quantity = data['quantity']
+            logger.info(f"Starting deduction for {product_id}, quantity: {deduct_quantity}")
             inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
+            if not inventory:
+                logger.warning(f"Product {product_id} not found in inventory")
+                return False
             
-            if inventory:
-                if inventory.quantity < deduct_quantity:
-                    # Publish insufficient inventory event
-                    event_data = json.dumps({
-                        "event": "InsufficientInventory",
-                        "product_id": product_id,
-                        "requested": deduct_quantity,
-                        "available": inventory.quantity
-                    })
-                    publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
-                    
-                    return jsonify({"error": "Insufficient stock"}), 400
-                    
-                previous_quantity = inventory.quantity
-                inventory.quantity -= deduct_quantity
-                inventory.last_updated = datetime.now(timezone.utc)
-                session.commit()
+            logger.info(f"Current quantity: {inventory.quantity}")
+            if inventory.quantity < deduct_quantity:
+                logger.warning(f"Insufficient stock for {product_id}: requested {deduct_quantity}, available {inventory.quantity}")
                 
-                # Publish inventory deducted event
+                # Add event for insufficient inventory
                 event_data = json.dumps({
-                    "event": "InventoryDeducted",
+                    "event": "InsufficientInventory",
                     "product_id": product_id,
-                    "deducted": deduct_quantity,
-                    "previous_quantity": previous_quantity,
-                    "new_quantity": inventory.quantity
+                    "requested": deduct_quantity,
+                    "available": inventory.quantity
                 })
                 publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
+                return False
                 
-                return jsonify({"product_id": product_id, "new_quantity": inventory.quantity}), 200
-                
-            return jsonify({"error": "Product not found"}), 404
+            # Perform the deduction
+            inventory.quantity -= deduct_quantity
+            inventory.last_updated = datetime.now(timezone.utc)
+            session.commit()
+            
+            # Add event for successful deduction
+            event_data = json.dumps({
+                "event": "InventoryDeducted",
+                "product_id": product_id,
+                "quantity_deducted": deduct_quantity,
+                "remaining": inventory.quantity
+            })
+            publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
+            
+            logger.info(f"Successfully deducted {deduct_quantity} from {product_id}, remaining: {inventory.quantity}")
+            return True
         except Exception as e:
             session.rollback()
-            return jsonify({"error": str(e)}), 400
+            logger.error(f"Error deducting inventory: {str(e)}", exc_info=True)
+            return False
         finally:
             session.close()
 

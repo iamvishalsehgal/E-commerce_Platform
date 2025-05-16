@@ -22,7 +22,6 @@ PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
 ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
 INVENTORY_EVENTS_TOPIC = os.environ.get('INVENTORY_EVENTS_TOPIC', 'inventory-events')
 INVENTORY_SUBSCRIPTION = os.environ.get('INVENTORY_SUBSCRIPTION', 'inventory-order-events-sub')
-
 # Publisher client for inventory events
 publisher = pubsub_v1.PublisherClient()
 inventory_topic_path = publisher.topic_path(PROJECT_ID, INVENTORY_EVENTS_TOPIC)
@@ -46,61 +45,68 @@ def update_stock(product_id):
 
 @app.route("/inventory/<product_id>/deduct", methods=["POST"])
 def deduct_inventory(product_id):
-    return Inventory.deduct(product_id)
+    # Fix: Extract quantity from request JSON
+    quantity = request.json.get("quantity", 1)
+    success = Inventory.deduct_inventory(product_id, quantity)
+    if success:
+        return jsonify({"status": "success", "message": f"Deducted {quantity} from {product_id}"}), 200
+    else:
+        return jsonify({"status": "failure", "message": "Failed to deduct inventory"}), 400
 
 # Event handling logic
 def process_order_event(message):
-    """Process events from the order service"""
     try:
         event_data = message.data.decode('utf-8')
         logger.info(f"Received order event: {event_data}")
+        event_json = json.loads(event_data)
+        event_type = event_json.get("event")
         
-        # Parse event type and data
-        if ':' in event_data:
-            event_type, order_id = event_data.split(':', 1)
-            
-            # Handle different event types
-            if event_type == "OrderCreated":
-                # In choreography, we'd retrieve order details and act on them
-                # This would typically be an async call to the Order API or from event payload
-                logger.info(f"Processing order creation for Order ID: {order_id}")
-                # For now, we're just logging the event
+        if event_type == "OrderValidated":
+            product_id = event_json.get("product_id")
+            quantity = event_json.get("quantity")
+            order_id = event_json.get("order_id")
+            if product_id and quantity:
+                logger.info(f"Attempting to deduct {quantity} of product {product_id} for order {order_id}")
+                success = Inventory.deduct_inventory(product_id, quantity)
                 
-            elif event_type == "OrderValidated":
-                # In real implementation, we might update inventory reservation
-                logger.info(f"Order {order_id} has been validated")
-                
-            elif event_type == "OrderCancelled":
-                # In real implementation, release reserved inventory
-                logger.info(f"Order {order_id} has been cancelled - inventory should be restored")
-                
-        # Acknowledge message
+                # Publish outcome event to notify order service
+                if success:
+                    logger.info(f"Successfully deducted inventory for order {order_id}")
+                    event_data = json.dumps({
+                        "event": "InventoryDeducted",
+                        "order_id": order_id,
+                        "product_id": product_id,
+                        "quantity": quantity,
+                        "success": True
+                    })
+                else:
+                    logger.warning(f"Failed to deduct inventory for order {order_id}")
+                    event_data = json.dumps({
+                        "event": "DeductionFailed",
+                        "order_id": order_id,
+                        "product_id": product_id,
+                        "quantity": quantity,
+                        "success": False
+                    })
+                publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
         message.ack()
-        
     except Exception as e:
         logger.error(f"Error processing event: {str(e)}")
-        # Handle error, possibly nack the message
         message.nack()
 
 def start_subscriber():
     """Start the Pub/Sub subscriber in a separate thread"""
-    subscriber = pubsub_v1.SubscriberClient()
-    subscription_path = subscriber.subscription_path(PROJECT_ID, INVENTORY_SUBSCRIPTION)
-    
-    logger.info(f"Starting subscriber on {subscription_path}")
-    
-    streaming_pull_future = subscriber.subscribe(
-        subscription_path, callback=process_order_event
-    )
-    
-    # Keep the thread alive
     try:
-        streaming_pull_future.result()
-    except TimeoutError:
-        streaming_pull_future.cancel()
+        subscriber = pubsub_v1.SubscriberClient()
+        subscription_path = subscriber.subscription_path(PROJECT_ID, INVENTORY_SUBSCRIPTION)
+        logger.info(f"Starting subscriber on {subscription_path}")
+        streaming_pull_future = subscriber.subscribe(
+            subscription_path, callback=process_order_event
+        )
+        # Keep the thread alive
         streaming_pull_future.result()
     except Exception as e:
-        logger.error(f"Exception in subscriber thread: {str(e)}")
+        logger.error(f"Subscriber thread failed: {str(e)}", exc_info=True)
 
 if __name__ == '__main__':
     # Start the subscriber in a background thread

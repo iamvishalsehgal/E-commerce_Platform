@@ -41,7 +41,7 @@
         "5004",
         "--allow-unauthenticated",
         "--update-env-vars",
-        "DB_URL=bigquery://de2024-435420/group2_orderdb"
+        "DB_URL=bigquery://de2024-435420/group2_orderdb,PROJECT_ID=de2024-435420,ORDER_EVENTS_TOPIC=order-events,INVENTORY_EVENTS_TOPIC=inventory-events"
       ]
     }
   ],

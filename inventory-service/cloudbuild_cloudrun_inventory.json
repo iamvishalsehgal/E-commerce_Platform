@@ -1,14 +1,6 @@
 {
   "steps": [
     {
-      "name": "python:3.10-slim",
-      "entrypoint": "/bin/sh",
-      "args": [
-        "-c",
-        "pip install -r requirements.txt"
-      ]
-    },
-    {
       "name": "gcr.io/cloud-builders/docker",
       "args": [
         "build",
@@ -29,7 +21,8 @@
         "--image", "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
         "--region", "us-central1",
         "--platform", "managed",
-        "--allow-unauthenticated"
+        "--allow-unauthenticated",
+        "--update-env-vars", "ORDER_EVENTS_TOPIC=order-events,INVENTORY_SUBSCRIPTION=inventory-order-events-sub,INVENTORY_EVENTS_TOPIC=inventory-events,PROJECT_ID=de2024-435420,DB_URL=bigquery://de2024-435420/group2_inventorydb"
       ]
     }
   ]
