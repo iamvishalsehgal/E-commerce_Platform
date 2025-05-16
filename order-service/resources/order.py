@@ -78,9 +78,13 @@ class Order:
         try:
             order = session.query(OrderDAO).get(o_id)
             if order:
+                logger.info(f"Updating order {o_id} status from {order.status} to {new_status}")
                 previous_status = order.status
                 order.status = new_status
                 session.commit()
+                
+                # Log event data
+                logger.info(f"Publishing OrderStatusChanged event for order {o_id}")
                 
                 # Publish detailed status change event
                 event_data = json.dumps({
@@ -96,6 +100,7 @@ class Order:
                 
                 # Special case events
                 if new_status == "validated":
+                    logger.info(f"Publishing OrderValidated event for order {o_id}")
                     validated_event = json.dumps({
                         "event": "OrderValidated",
                         "order_id": o_id,
@@ -103,8 +108,8 @@ class Order:
                         "quantity": order.quantity
                     })
                     publisher.publish(topic_path, validated_event.encode('utf-8'))
-                    
                 elif new_status == "cancelled":
+                    logger.info(f"Publishing OrderCancelled event for order {o_id}")
                     cancelled_event = json.dumps({
                         "event": "OrderCancelled",
                         "order_id": o_id,
@@ -112,10 +117,11 @@ class Order:
                         "quantity": order.quantity
                     })
                     publisher.publish(topic_path, cancelled_event.encode('utf-8'))
-                
                 return jsonify({'status': new_status}), 200
+            logger.warning(f"Order {o_id} not found for status update")
             return jsonify({'error': 'Order not found'}), 404
         except Exception as e:
+            logger.error(f"Error updating order {o_id}: {str(e)}", exc_info=True)
             session.rollback()
             return jsonify({'error': str(e)}), 400
         finally:

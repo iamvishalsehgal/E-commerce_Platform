@@ -110,15 +110,38 @@ class Inventory:
             logger.info(f"Starting deduction for {product_id}, quantity: {deduct_quantity}")
             inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
             if not inventory:
-                logger.warning(f"Product {product_id} not found in BigQuery")
+                logger.warning(f"Product {product_id} not found in inventory")
                 return False
+            
             logger.info(f"Current quantity: {inventory.quantity}")
             if inventory.quantity < deduct_quantity:
                 logger.warning(f"Insufficient stock for {product_id}: requested {deduct_quantity}, available {inventory.quantity}")
+                
+                # Add event for insufficient inventory
+                event_data = json.dumps({
+                    "event": "InsufficientInventory",
+                    "product_id": product_id,
+                    "requested": deduct_quantity,
+                    "available": inventory.quantity
+                })
+                publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
                 return False
+                
+            # Perform the deduction
             inventory.quantity -= deduct_quantity
+            inventory.last_updated = datetime.now(timezone.utc)
             session.commit()
-            logger.info(f"Successfully deducted {deduct_quantity} from {product_id}")
+            
+            # Add event for successful deduction
+            event_data = json.dumps({
+                "event": "InventoryDeducted",
+                "product_id": product_id,
+                "quantity_deducted": deduct_quantity,
+                "remaining": inventory.quantity
+            })
+            publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
+            
+            logger.info(f"Successfully deducted {deduct_quantity} from {product_id}, remaining: {inventory.quantity}")
             return True
         except Exception as e:
             session.rollback()

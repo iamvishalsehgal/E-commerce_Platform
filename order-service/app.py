@@ -22,7 +22,6 @@ PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
 ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
 INVENTORY_EVENTS_TOPIC = os.environ.get('INVENTORY_EVENTS_TOPIC', 'inventory-events')
 ORDER_SUBSCRIPTION = os.environ.get('ORDER_SUBSCRIPTION', 'order-inventory-events-sub')
-
 # CORE: Order Management
 @app.route("/orders", methods=["POST"])
 def create_order():
@@ -82,6 +81,20 @@ def process_inventory_event(message):
             # This could affect multiple orders - we might get the order ID from the event
             # or we might need to look up orders that need this product
             logger.info(f"Insufficient inventory notification: {event_data}")
+            
+        elif event_type == "InventoryDeducted":
+            # Handle successful inventory deduction
+            order_id = event_data.get("order_id")
+            if order_id:
+                logger.info(f"Inventory deducted successfully for order {order_id}")
+                Order.update_status(order_id, "processing")
+                
+        elif event_type == "DeductionFailed":
+            # Handle failed inventory deduction
+            order_id = event_data.get("order_id")
+            if order_id:
+                logger.info(f"Inventory deduction failed for order {order_id}")
+                Order.update_status(order_id, "inventory_failed")
         
         # Acknowledge message
         message.ack()
@@ -94,8 +107,7 @@ def process_inventory_event(message):
 def start_subscriber():
     """Start the Pub/Sub subscriber in a separate thread"""
     subscriber = pubsub_v1.SubscriberClient()
-    subscription_path = subscriber.subscription_path(PROJECT_ID, ORDER_SUBSCRIPTION)
-    
+    subscription_path = subscriber.subscription_path(PROJECT_ID, ORDER_SUBSCRIPTION)    
     logger.info(f"Starting subscriber for inventory events on {subscription_path}")
     
     streaming_pull_future = subscriber.subscribe(

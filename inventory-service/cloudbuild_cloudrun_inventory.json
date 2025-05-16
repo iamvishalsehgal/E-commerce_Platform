@@ -22,7 +22,7 @@
         "--region", "us-central1",
         "--platform", "managed",
         "--allow-unauthenticated",
-        "--update-env-vars", "PROJECT_ID=de2024-435420,INVENTORY_EVENTS_TOPIC=inventory-events,DB_URL=bigquery://de2024-435420/group2_inventorydb"
+        "--update-env-vars", "ORDER_EVENTS_TOPIC=order-events,INVENTORY_SUBSCRIPTION=inventory-order-events-sub,INVENTORY_EVENTS_TOPIC=inventory-events,PROJECT_ID=de2024-435420,DB_URL=bigquery://de2024-435420/group2_inventorydb"
       ]
     }
   ]

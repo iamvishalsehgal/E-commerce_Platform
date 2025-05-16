@@ -22,7 +22,6 @@ PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
 ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
 INVENTORY_EVENTS_TOPIC = os.environ.get('INVENTORY_EVENTS_TOPIC', 'inventory-events')
 INVENTORY_SUBSCRIPTION = os.environ.get('INVENTORY_SUBSCRIPTION', 'inventory-order-events-sub')
-
 # Publisher client for inventory events
 publisher = pubsub_v1.PublisherClient()
 inventory_topic_path = publisher.topic_path(PROJECT_ID, INVENTORY_EVENTS_TOPIC)
@@ -46,7 +45,13 @@ def update_stock(product_id):
 
 @app.route("/inventory/<product_id>/deduct", methods=["POST"])
 def deduct_inventory(product_id):
-    return Inventory.deduct(product_id)
+    # Fix: Extract quantity from request JSON
+    quantity = request.json.get("quantity", 1)
+    success = Inventory.deduct_inventory(product_id, quantity)
+    if success:
+        return jsonify({"status": "success", "message": f"Deducted {quantity} from {product_id}"}), 200
+    else:
+        return jsonify({"status": "failure", "message": "Failed to deduct inventory"}), 400
 
 # Event handling logic
 def process_order_event(message):
@@ -63,10 +68,27 @@ def process_order_event(message):
             if product_id and quantity:
                 logger.info(f"Attempting to deduct {quantity} of product {product_id} for order {order_id}")
                 success = Inventory.deduct_inventory(product_id, quantity)
+                
+                # Publish outcome event to notify order service
                 if success:
                     logger.info(f"Successfully deducted inventory for order {order_id}")
+                    event_data = json.dumps({
+                        "event": "InventoryDeducted",
+                        "order_id": order_id,
+                        "product_id": product_id,
+                        "quantity": quantity,
+                        "success": True
+                    })
                 else:
                     logger.warning(f"Failed to deduct inventory for order {order_id}")
+                    event_data = json.dumps({
+                        "event": "DeductionFailed",
+                        "order_id": order_id,
+                        "product_id": product_id,
+                        "quantity": quantity,
+                        "success": False
+                    })
+                publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
         message.ack()
     except Exception as e:
         logger.error(f"Error processing event: {str(e)}")
@@ -74,23 +96,17 @@ def process_order_event(message):
 
 def start_subscriber():
     """Start the Pub/Sub subscriber in a separate thread"""
-    subscriber = pubsub_v1.SubscriberClient()
-    subscription_path = subscriber.subscription_path(PROJECT_ID, INVENTORY_SUBSCRIPTION)
-    
-    logger.info(f"Starting subscriber on {subscription_path}")
-    
-    streaming_pull_future = subscriber.subscribe(
-        subscription_path, callback=process_order_event
-    )
-    
-    # Keep the thread alive
     try:
-        streaming_pull_future.result()
-    except TimeoutError:
-        streaming_pull_future.cancel()
+        subscriber = pubsub_v1.SubscriberClient()
+        subscription_path = subscriber.subscription_path(PROJECT_ID, INVENTORY_SUBSCRIPTION)
+        logger.info(f"Starting subscriber on {subscription_path}")
+        streaming_pull_future = subscriber.subscribe(
+            subscription_path, callback=process_order_event
+        )
+        # Keep the thread alive
         streaming_pull_future.result()
     except Exception as e:
-        logger.error(f"Exception in subscriber thread: {str(e)}")
+        logger.error(f"Subscriber thread failed: {str(e)}", exc_info=True)
 
 if __name__ == '__main__':
     # Start the subscriber in a background thread
