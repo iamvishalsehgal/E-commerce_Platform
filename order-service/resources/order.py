@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 from flask import jsonify, request
@@ -7,12 +7,12 @@ from daos.order_dao import OrderDAO
 from db import Session
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 # Pub/Sub configuration
-PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
-ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
-
+PROJECT_ID = os.environ.get("PROJECT_ID", "de2024-435420")
+ORDER_EVENTS_TOPIC = os.environ.get("ORDER_EVENTS_TOPIC", "order-events")
 publisher = pubsub_v1.PublisherClient()
 topic_path = publisher.topic_path(PROJECT_ID, ORDER_EVENTS_TOPIC)
 
@@ -22,36 +22,42 @@ class Order:
         session = Session()
         try:
             # Generate sequential ID if not provided
-            order_id = body.get('id', session.query(OrderDAO).count() + 1)
-            
-            order = OrderDAO(
-                id=order_id,
+            if 'id' not in body:
+                last_order = session.query(OrderDAO).order_by(OrderDAO.id.desc()).first()
+                body['id'] = 1 if not last_order else last_order.id + 1
+
+            # Handle order date (UTC timezone-aware)
+            order_date = datetime.now(timezone.utc)  # Default to now
+            if 'order_date' in body:
+                # Convert ISO string to UTC datetime
+                date_str = body['order_date'].replace('Z', '+00:00')
+                order_date = datetime.fromisoformat(date_str).astimezone(timezone.utc)
+
+            # Check for existing order ID
+            existing_order = session.query(OrderDAO).get(body['id'])
+            if existing_order:
+                return jsonify({'error': f'Order ID {body["id"]} already exists'}), 409
+
+            new_order = OrderDAO(
+                id=body['id'],
                 customer_id=body['customer_id'],
                 product_id=body['product_id'],
                 quantity=body['quantity'],
-                order_date=datetime.fromisoformat(body['order_date']),
+                order_date=order_date,
                 status="created"
             )
-            
-            session.add(order)
+
+            session.add(new_order)
             session.commit()
-            
-            # Publish detailed order created event with full order details
-            event_data = json.dumps({
-                "event": "OrderCreated",
-                "order_id": order_id,
-                "customer_id": body['customer_id'],
-                "product_id": body['product_id'],
-                "quantity": body['quantity'],
-                "timestamp": datetime.now().isoformat()
-            })
-            publisher.publish(topic_path, event_data.encode('utf-8'))
-            
-            return jsonify({'order_id': order.id}), 200
-            
+            session.refresh(new_order)
+
+            # Return created order ID
+            return jsonify({'order_id': new_order.id}), 200
+
         except Exception as e:
             session.rollback()
-            return jsonify({'error': str(e)}), 400
+            logger.error(f"Order creation failed: {str(e)}", exc_info=True)  # ← Add this line
+            return jsonify({'error': 'Order creation failed', 'details': str(e)}), 400  # ← Show error details
         finally:
             session.close()
 

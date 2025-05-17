@@ -4,26 +4,41 @@
       "name": "gcr.io/cloud-builders/docker",
       "args": [
         "build",
+         "--no-cache",
         "-t",
-        "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
+        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:${_TAG}",
         "."
       ]
     },
     {
       "name": "gcr.io/cloud-builders/docker",
-      "args": ["push", "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1"]
+      "args": [
+        "push",
+        "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:${_TAG}"
+      ]
     },
     {
       "name": "gcr.io/google.com/cloudsdktool/cloud-sdk",
       "entrypoint": "gcloud",
       "args": [
         "run", "deploy", "inventory-service",
-        "--image", "us-central1-docker.pkg.dev/de2024-435420/labrepo/inventoryservice-api:0.0.1",
+        "--image", "${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/inventoryservice-api:${_TAG}",
         "--region", "us-central1",
         "--platform", "managed",
         "--allow-unauthenticated",
-        "--update-env-vars", "ORDER_EVENTS_TOPIC=order-events,INVENTORY_SUBSCRIPTION=inventory-order-events-sub,INVENTORY_EVENTS_TOPIC=inventory-events,PROJECT_ID=de2024-435420,DB_URL=bigquery://de2024-435420/group2_inventorydb"
+        "--memory", "2Gi",
+        "--cpu", "2",
+        "--timeout", "300",
+        "--port", "8080",
+        "--allow-unauthenticated",
+        "--update-env-vars",
+        "ORDER_EVENTS_TOPIC=order-events,INVENTORY_SUBSCRIPTION=inventory-order-events-sub,INVENTORY_EVENTS_TOPIC=inventory-events,PROJECT_ID=de2024-435420,DB_URL=bigquery://de2024-435420/group2_inventorydb"
       ]
     }
-  ]
+  ],
+  "substitutions": {
+    "_LOCATION": "us-central1",
+    "_REPOSITORY": "labrepo",
+    "_TAG": "0.0.1"
+  }
 }

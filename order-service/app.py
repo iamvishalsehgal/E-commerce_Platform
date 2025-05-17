@@ -5,9 +5,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google.cloud import pubsub_v1
 from concurrent.futures import TimeoutError
-from db import Base, engine
 from resources.order import Order
 import logging
+from .db import Base, engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
