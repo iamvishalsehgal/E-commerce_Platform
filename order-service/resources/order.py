@@ -26,7 +26,7 @@ class Order:
                 last_order = session.query(OrderDAO).order_by(OrderDAO.id.desc()).first()
                 body['id'] = 1 if not last_order else last_order.id + 1
 
-            # Handle order date - Always use current time regardless of what's provided
+            # Handle order date 
             # This removes any timestamp restrictions
             order_date = datetime.now(timezone.utc)
 
@@ -60,7 +60,6 @@ class Order:
             publisher.publish(topic_path, event_data.encode('utf-8'))
             logger.info(f"Published OrderCreated event for order {new_order.id}")
 
-            # Return created order ID
             return jsonify({'order_id': new_order.id}), 200
 
         except Exception as e:
@@ -98,7 +97,6 @@ class Order:
                 order.status = new_status
                 session.commit()
                 
-                # Log event data
                 logger.info(f"Publishing OrderStatusChanged event for order {o_id}")
                 
                 # Publish detailed status change event
@@ -149,7 +147,7 @@ class Order:
             order = session.query(OrderDAO).get(order_id)
             if order:
                 # Validate allowed status transitions
-                valid_statuses = ["shipped", "out_for_delivery", "delivered"]
+                valid_statuses = ["delivery_requested", "shipped", "out_for_delivery", "delivered", "failed"]
                 if new_status not in valid_statuses:
                     return jsonify({"error": "Invalid delivery status"}), 400
                 
@@ -157,14 +155,18 @@ class Order:
                 order.status = new_status
                 session.commit()
                 
+                status_parts = new_status.split('_')
+                camel_case_status = ''.join([part.capitalize() for part in status_parts])
+                event_name = f"Order{camel_case_status}"
+                
                 # Publish delivery event
                 event_data = json.dumps({
-                    "event": f"Order{new_status.capitalize()}",
+                    "event": event_name,
                     "order_id": order_id,
                     "previous_status": previous_status,
                     "customer_id": order.customer_id,
                     "product_id": order.product_id,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 })
                 publisher.publish(topic_path, event_data.encode('utf-8'))
                 

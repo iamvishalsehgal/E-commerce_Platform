@@ -203,7 +203,7 @@ class Inventory:
             "remaining_quantity": remaining,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "order_id": order_id,
-            "immediate_processing": True  # Flag to indicate this should be processed immediately
+            "immediate_processing": True  
         }
         
         if error_msg:

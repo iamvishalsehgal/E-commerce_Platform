@@ -60,7 +60,6 @@ def process_inventory_event(message):
         
         event_type = event_data.get("event")
         
-        # Process all inventory events regardless of timestamp
         logger.info(f"Processing inventory event type {event_type} without time restriction")
         
         # Handle different inventory event types
@@ -93,18 +92,15 @@ def process_inventory_event(message):
                 Order.update_status(order_id, "processing")
                 
         elif event_type == "DeductionFailed":
-            # Handle failed inventory deduction - process immediately
             order_id = event_data.get("order_id")
             if order_id:
                 logger.info(f"Inventory deduction failed for order {order_id}")
                 Order.update_status(order_id, "inventory_failed")
         
-        # Acknowledge message
         message.ack()
         
     except Exception as e:
         logger.error(f"Error processing inventory event: {str(e)}")
-        # Handle error, possibly nack the message
         message.nack()
 
 def start_subscriber():
@@ -117,7 +113,6 @@ def start_subscriber():
         subscription_path, callback=process_inventory_event
     )
     
-    # Keep the thread alive
     try:
         streaming_pull_future.result()
     except TimeoutError:
@@ -127,7 +122,6 @@ def start_subscriber():
         logger.error(f"Exception in subscriber thread: {str(e)}")
 
 if __name__ == '__main__':
-    # Start the subscriber in a background thread
     subscriber_thread = threading.Thread(target=start_subscriber)
     subscriber_thread.daemon = True
     subscriber_thread.start()

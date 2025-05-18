@@ -5,8 +5,8 @@ from sqlalchemy import TIMESTAMP
 class InventoryDAO(Base):
     __tablename__ = 'inventory'
     __table_args__ = {
-        'bigquery_dataset': 'group2_inventorydb',  # Match your dataset
-        'bigquery_project': 'de2024-435420'        # Your project ID
+        'bigquery_dataset': 'group2_inventorydb', 
+        'bigquery_project': 'de2024-435420'       
     }
 
     product_id = Column(String(50), primary_key=True)

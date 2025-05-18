@@ -46,7 +46,7 @@ def update_stock(product_id):
 @app.route("/inventory/<product_id>/deduct", methods=["POST"])
 def deduct_inventory(product_id):
     quantity = request.json.get("quantity", 1)
-    success, remaining = Inventory.deduct_inventory(product_id, quantity)  # Unpack tuple
+    success, remaining = Inventory.deduct_inventory(product_id, quantity)  
     if success:
         return jsonify({
             "status": "success", 
@@ -63,11 +63,9 @@ def process_order_event(message):
     logger.info(f"[PUBSUB] Received message ID: {message.message_id}")
     
     try:
-        # Decode and log raw message
         raw_data = message.data.decode('utf-8')
         logger.debug(f"[DEBUG] Raw message data: {raw_data}")
         
-        # Parse JSON payload
         event = json.loads(raw_data)
         logger.debug(f"[DEBUG] Parsed event:\n{json.dumps(event, indent=2)}")
 
@@ -129,15 +127,14 @@ def start_subscriber():
         streaming_pull_future = subscriber.subscribe(
             subscription_path, callback=process_order_event
         )
-        logger.info("🟢 Subscriber is running...")
-        streaming_pull_future.result()  # Block indefinitely
+        logger.info("Subscriber is running...")
+        streaming_pull_future.result()  
 
     except Exception as e:
         logger.error(f"[SUBSCRIBER-FAILED] Subscriber thread crashed: {str(e)}", exc_info=True)
-        raise  # Ensure the error is visible in logs
+        raise  
 
 if __name__ == '__main__':
-    # Start the subscriber in a background thread
     subscriber_thread = threading.Thread(target=start_subscriber)
     subscriber_thread.daemon = True
     subscriber_thread.start()
