@@ -112,6 +112,7 @@ class Inventory:
     def deduct_inventory(product_id, deduct_quantity, order_id=None):
         """
         Deduct inventory in a transactional way with proper error handling and event publishing.
+        No timestamp validation or time-based restrictions.
         """
         bq_client = None
         try:
@@ -130,7 +131,7 @@ class Inventory:
                 ]
             )
 
-            # Atomic update operation
+            # Atomic update operation - no timestamp checks
             update_query = f"""
                 UPDATE `{table_ref}`
                 SET quantity = GREATEST(quantity - @deduct_quantity, 0),
@@ -162,7 +163,7 @@ class Inventory:
             result = next(get_job.result())
             remaining_quantity = result.quantity
 
-            # Publish success event
+            # Publish success event - no time constraints
             Inventory._publish_deduction_event(
                 "InventoryDeducted",
                 product_id,
@@ -194,14 +195,15 @@ class Inventory:
 
     @staticmethod
     def _publish_deduction_event(event_type, product_id, deducted, remaining, order_id=None, error_msg=None):
-        """Helper method to publish inventory deduction events"""
+        """Helper method to publish inventory deduction events - without time filters"""
         event_data = {
             "event": event_type,
             "product_id": product_id,
             "deducted_quantity": deducted,
             "remaining_quantity": remaining,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "order_id": order_id
+            "order_id": order_id,
+            "immediate_processing": True  # Flag to indicate this should be processed immediately
         }
         
         if error_msg:

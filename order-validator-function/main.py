@@ -1,10 +1,10 @@
-# order-validator-function/main.py
 import os
 import json
 import base64
 import requests
 import logging
 from google.cloud import pubsub_v1
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +24,9 @@ INVENTORY_SERVICE_URL = os.environ.get(
 
 def order_validator(event, context):
     """Cloud Function triggered by Pub/Sub messages from order-events."""
+    order_id = None
+    product_id = None
+    
     try:
         # Decode Pub/Sub message
         event_data = json.loads(base64.b64decode(event['data']).decode('utf-8'))
@@ -31,7 +34,7 @@ def order_validator(event, context):
 
         event_type = event_data.get("event")
 
-        # Only process OrderCreated events
+        # Only process OrderCreated events - no timestamp filtering
         if event_type != "OrderCreated":
             logger.info(f"Ignoring non-OrderCreated event: {event_type}")
             return {"status": "skipped", "message": f"Ignored {event_type} event"}
@@ -43,6 +46,9 @@ def order_validator(event, context):
 
         if not all([order_id, product_id, quantity]):
             raise ValueError("Missing required order data")
+
+        # Process all orders regardless of timestamp
+        logger.info(f"Processing order {order_id} without time restriction")
 
         # Step 1: Check inventory availability
         check_url = f"{INVENTORY_SERVICE_URL}/inventory/{product_id}"
@@ -64,18 +70,8 @@ def order_validator(event, context):
                 "message": f"Insufficient inventory for product {product_id}"
             }
 
-        # Step 3: Reserve inventory (via event-driven choreography)
-        reserve_response = requests.post(
-            f"{INVENTORY_SERVICE_URL}/inventory/{product_id}/reserve",
-            json={"quantity": quantity, "order_id": order_id}
-        )
-
-        if not reserve_response.ok:
-            logger.error(f"Inventory reservation failed: {reserve_response.text}")
-            publish_validation_failed(order_id, product_id, "reservation_failed")
-            return {"status": "error", "message": "Inventory reservation failed"}
-
-        # Step 4: Publish validation success
+        # Step 3: Publish OrderValidated event directly (skipping reservation)
+        # This accelerates the process and removes potential timing issues
         validation_event = {
             "event": "OrderValidated",
             "order_id": order_id,
@@ -90,12 +86,13 @@ def order_validator(event, context):
             "status": "success",
             "order_id": order_id,
             "product_id": product_id,
-            "message": "Order validated"
+            "message": "Order validated immediately"
         }
 
     except Exception as e:
         logger.error(f"Error processing order: {str(e)}", exc_info=True)
-        publish_validation_failed(order_id, product_id, str(e))
+        if order_id and product_id:
+            publish_validation_failed(order_id, product_id, str(e))
         return {"status": "error", "message": str(e)}
 
 def publish_validation_failed(order_id, product_id, reason):

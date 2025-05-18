@@ -53,12 +53,15 @@ def update_delivery(order_id):
 
 # Event handling for inventory events
 def process_inventory_event(message):
-    """Process events from the inventory service"""
+    """Process events from the inventory service - without timestamp filtering"""
     try:
         event_data = json.loads(message.data.decode('utf-8'))
         logger.info(f"Received inventory event: {event_data}")
         
         event_type = event_data.get("event")
+        
+        # Process all inventory events regardless of timestamp
+        logger.info(f"Processing inventory event type {event_type} without time restriction")
         
         # Handle different inventory event types
         if event_type == "InventoryReserved":
@@ -83,14 +86,14 @@ def process_inventory_event(message):
             logger.info(f"Insufficient inventory notification: {event_data}")
             
         elif event_type == "InventoryDeducted":
-            # Handle successful inventory deduction
+            # Handle successful inventory deduction - process immediately
             order_id = event_data.get("order_id")
             if order_id:
                 logger.info(f"Inventory deducted successfully for order {order_id}")
                 Order.update_status(order_id, "processing")
                 
         elif event_type == "DeductionFailed":
-            # Handle failed inventory deduction
+            # Handle failed inventory deduction - process immediately
             order_id = event_data.get("order_id")
             if order_id:
                 logger.info(f"Inventory deduction failed for order {order_id}")

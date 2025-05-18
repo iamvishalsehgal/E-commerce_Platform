@@ -59,7 +59,7 @@ def deduct_inventory(product_id):
         }), 400
 
 def process_order_event(message):
-    """Process Pub/Sub messages from order-events topic."""
+    """Process Pub/Sub messages from order-events topic without timestamp filtering."""
     logger.info(f"[PUBSUB] Received message ID: {message.message_id}")
     
     try:
@@ -71,7 +71,7 @@ def process_order_event(message):
         event = json.loads(raw_data)
         logger.debug(f"[DEBUG] Parsed event:\n{json.dumps(event, indent=2)}")
 
-        # Validate event type
+        # Validate event type - process all OrderValidated events regardless of timestamp
         if event.get('event') != 'OrderValidated':
             logger.warning(f"Ignoring non-OrderValidated event: {event.get('event')}")
             message.ack()
@@ -90,9 +90,9 @@ def process_order_event(message):
         quantity = int(event['quantity'])
         order_id = event.get('order_id', 'unknown')
         
-        logger.info(f"Processing deduction - Product: {product_id}, Qty: {quantity}, Order: {order_id}")
+        logger.info(f"Processing immediate deduction - Product: {product_id}, Qty: {quantity}, Order: {order_id}")
 
-        # Execute deduction
+        # Execute deduction without any time-based filters
         success, remaining = Inventory.deduct_inventory(product_id, quantity, order_id)
         
         if success:

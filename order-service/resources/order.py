@@ -26,12 +26,9 @@ class Order:
                 last_order = session.query(OrderDAO).order_by(OrderDAO.id.desc()).first()
                 body['id'] = 1 if not last_order else last_order.id + 1
 
-            # Handle order date (UTC timezone-aware)
-            order_date = datetime.now(timezone.utc)  # Default to now
-            if 'order_date' in body:
-                # Convert ISO string to UTC datetime
-                date_str = body['order_date'].replace('Z', '+00:00')
-                order_date = datetime.fromisoformat(date_str).astimezone(timezone.utc)
+            # Handle order date - Always use current time regardless of what's provided
+            # This removes any timestamp restrictions
+            order_date = datetime.now(timezone.utc)
 
             # Check for existing order ID
             existing_order = session.query(OrderDAO).get(body['id'])
@@ -51,13 +48,25 @@ class Order:
             session.commit()
             session.refresh(new_order)
 
+            # Publish OrderCreated event to trigger processing immediately
+            event_data = json.dumps({
+                "event": "OrderCreated",
+                "order_id": new_order.id,
+                "customer_id": new_order.customer_id,
+                "product_id": new_order.product_id,
+                "quantity": new_order.quantity,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+            publisher.publish(topic_path, event_data.encode('utf-8'))
+            logger.info(f"Published OrderCreated event for order {new_order.id}")
+
             # Return created order ID
             return jsonify({'order_id': new_order.id}), 200
 
         except Exception as e:
             session.rollback()
-            logger.error(f"Order creation failed: {str(e)}", exc_info=True)  # ← Add this line
-            return jsonify({'error': 'Order creation failed', 'details': str(e)}), 400  # ← Show error details
+            logger.error(f"Order creation failed: {str(e)}", exc_info=True)
+            return jsonify({'error': 'Order creation failed', 'details': str(e)}), 400
         finally:
             session.close()
 
