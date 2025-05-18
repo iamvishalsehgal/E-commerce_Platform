@@ -1,8 +1,9 @@
 {
   "steps": [
     {
-      "name": "python:3.10-slim-bullseye",
+      "name": "python:3.10-slim-buster",
       "entrypoint": "/bin/sh",
+      "dir": "order-service",
       "args": [
         "-c",
         "apt-get update && apt-get install -y gcc python3-dev libpq-dev && pip install --upgrade pip setuptools wheel && pip install -r requirements.txt"
@@ -10,18 +11,20 @@
     },
     {
       "name": "gcr.io/cloud-builders/docker",
+      "dir": "order-service",
       "args": [
         "build",
         "-t",
-        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1",
+        "us-central1-docker.pkg.dev/$PROJECT_ID/labrepo/orderservice-api:${_TAG}",
         "."
       ]
     },
     {
       "name": "gcr.io/cloud-builders/docker",
+      "dir": "order-service",
       "args": [
         "push",
-        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1"
+        "us-central1-docker.pkg.dev/$PROJECT_ID/labrepo/orderservice-api:${_TAG}"
       ]
     },
     {
@@ -32,7 +35,7 @@
         "deploy",
         "order-service",
         "--image",
-        "us-central1-docker.pkg.dev/de2024-435420/labrepo/orderservice-api:0.0.1",
+        "us-central1-docker.pkg.dev/$PROJECT_ID/labrepo/orderservice-api:${_TAG}",
         "--region",
         "us-central1",
         "--platform",
@@ -41,10 +44,13 @@
         "5004",
         "--allow-unauthenticated",
         "--update-env-vars",
-        "DB_URL=bigquery://de2024-435420/group2_orderdb,PROJECT_ID=de2024-435420,ORDER_EVENTS_TOPIC=order-events,INVENTORY_EVENTS_TOPIC=inventory-events"
+        "DB_URL=bigquery://$PROJECT_ID/group2_orderdb,PROJECT_ID=$PROJECT_ID,ORDER_EVENTS_TOPIC=order-events,INVENTORY_EVENTS_TOPIC=inventory-events"
       ]
     }
   ],
+  "substitutions": {
+    "_TAG": "0.0.1"
+  },
   "options": {
     "logging": "CLOUD_LOGGING_ONLY"
   }
