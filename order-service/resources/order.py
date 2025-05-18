@@ -146,20 +146,25 @@ class Order:
         try:
             order = session.query(OrderDAO).get(order_id)
             if order:
-                # Validate allowed status transitions
-                valid_statuses = ["delivery_requested", "shipped", "out_for_delivery", "delivered", "failed"]
+                valid_statuses = [
+                    "delivery_requested", 
+                    "shipped",
+                    "out_for_delivery", 
+                    "delivered",
+                    "failed",
+                    "cancelled" 
+                ]
                 if new_status not in valid_statuses:
                     return jsonify({"error": "Invalid delivery status"}), 400
                 
                 previous_status = order.status
-                order.status = new_status
+                order.status = new_status 
                 session.commit()
                 
-                status_parts = new_status.split('_')
-                camel_case_status = ''.join([part.capitalize() for part in status_parts])
-                event_name = f"Order{camel_case_status}"
+                event_name = "Order" + "".join(
+                    [word.capitalize() for word in new_status.split("_")]
+                )
                 
-                # Publish delivery event
                 event_data = json.dumps({
                     "event": event_name,
                     "order_id": order_id,
