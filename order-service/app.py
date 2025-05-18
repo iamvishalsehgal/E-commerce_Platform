@@ -7,7 +7,7 @@ from google.cloud import pubsub_v1
 from concurrent.futures import TimeoutError
 from resources.order import Order
 import logging
-from .db import Base, engine
+from db import Base, engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

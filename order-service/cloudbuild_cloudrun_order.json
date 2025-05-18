@@ -44,7 +44,9 @@
         "5004",
         "--allow-unauthenticated",
         "--update-env-vars",
-        "DB_URL=bigquery://$PROJECT_ID/group2_orderdb,PROJECT_ID=$PROJECT_ID,ORDER_EVENTS_TOPIC=order-events,INVENTORY_EVENTS_TOPIC=inventory-events"
+        "DB_URL=bigquery://$PROJECT_ID/group2_orderdb,PROJECT_ID=$PROJECT_ID,ORDER_EVENTS_TOPIC=order-events,INVENTORY_EVENTS_TOPIC=inventory-events,ORDER_SUBSCRIPTION=order-inventory-events-sub",
+        "--service-account",
+        "order-service-sa@$PROJECT_ID.iam.gserviceaccount.com"
       ]
     }
   ],
