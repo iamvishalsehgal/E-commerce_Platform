@@ -109,6 +109,28 @@ class Inventory:
             session.close()
 
     @staticmethod
+    def _publish_deduction_event(event_type, product_id, deducted, remaining, order_id=None, error_msg=None):
+        """Helper method to publish inventory deduction events - without time filters"""
+        event_data = {
+            "event": event_type,
+            "product_id": product_id,
+            "deducted_quantity": deducted,
+            "remaining_quantity": remaining,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "order_id": order_id,
+            "immediate_processing": True  
+        }
+        
+        if error_msg:
+            event_data["error"] = error_msg
+        
+        try:
+            publisher.publish(inventory_topic_path, json.dumps(event_data).encode('utf-8'))
+            logger.debug(f"Published {event_type} event for {product_id}")
+        except Exception as e:
+            logger.error(f"Failed to publish {event_type} event: {str(e)}")
+
+    @staticmethod
     def deduct_inventory(product_id, deduct_quantity, order_id=None):
         """
         Deduct inventory in a transactional way with proper error handling and event publishing.
@@ -192,25 +214,3 @@ class Inventory:
                     bq_client.close()
                 except Exception as e:
                     logger.warning(f"Error closing BigQuery client: {str(e)}")
-
-    @staticmethod
-    def _publish_deduction_event(event_type, product_id, deducted, remaining, order_id=None, error_msg=None):
-        """Helper method to publish inventory deduction events - without time filters"""
-        event_data = {
-            "event": event_type,
-            "product_id": product_id,
-            "deducted_quantity": deducted,
-            "remaining_quantity": remaining,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "order_id": order_id,
-            "immediate_processing": True  
-        }
-        
-        if error_msg:
-            event_data["error"] = error_msg
-        
-        try:
-            publisher.publish(inventory_topic_path, json.dumps(event_data).encode('utf-8'))
-            logger.debug(f"Published {event_type} event for {product_id}")
-        except Exception as e:
-            logger.error(f"Failed to publish {event_type} event: {str(e)}")
