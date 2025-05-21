@@ -1,6 +1,7 @@
 import functions_framework
 import random
 from flask import jsonify
+from google.cloud import bigquery
 
 @functions_framework.http
 def generate_shipping_label(request):
@@ -27,6 +28,8 @@ def generate_shipping_label(request):
     tracking_id = random.randint(10**11, 10**12 - 1)  # 12-digit int
     barcode = ''.join(random.choices('0123456789', k=12))  # 12-digit string
 
+    addDeliveryToDB(order_id, sender_info, receiver_info, delivery_id, tracking_id, barcode, "new")
+
     # Return all info
     return jsonify({
         "message": "Shipping label generated",
@@ -37,3 +40,27 @@ def generate_shipping_label(request):
         "sender": sender_info,
         "receiver": receiver_info
     }), 200
+
+
+def addDeliveryToDB(order_id, sender_info, receiver_info, delivery_id, tracking_id, barcode, delivery_status):
+    # Construct a BigQuery client object
+    client = bigquery.Client()
+
+    # Define table ID (replace $PROJECT_ID)
+    table_id = "de2024-435420.group2_deliverydb.delivery"  # Use actual project ID
+
+    # Prepare the row to insert
+    row = {
+        "order_id": order_id,
+        "id": delivery_id,
+        "sender_info": sender_info,
+        "reveiver_info": receiver_info,
+        "barcode": barcode,
+        "tracking_id": tracking_id,
+        "delivery_status": delivery_status
+    }
+
+    # Use insert_rows_json for safer schema handling
+    errors = client.insert_rows_json(table_id, [row])
+    if errors:
+        raise RuntimeError(f"BigQuery insert failed: {errors}")

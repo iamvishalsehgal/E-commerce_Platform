@@ -2,6 +2,7 @@ import functions_framework
 import random
 import string
 from flask import jsonify
+from google.cloud import bigquery
 
 @functions_framework.http
 def request_delivery(request):
@@ -29,6 +30,8 @@ def request_delivery(request):
         return jsonify({"error": "Missing order ID, sender info, or receiver info"}), 400
 
     delivery_id = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+
+    delivery_status = "new"  # or whatever initial status you want
 
     return jsonify({
         "message": "Delivery accepted",
