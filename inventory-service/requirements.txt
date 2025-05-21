@@ -1,2 +1,11 @@
-Flask==2.3.3
-flask-cors==4.0.1
+flask
+flask-cors
+sqlalchemy>=2.0.0
+sqlalchemy-utils
+python-dateutil 
+google-cloud-pubsub
+google-cloud-bigquery-storage
+google-cloud-bigquery
+sqlalchemy-bigquery>=1.8.0
+gevent>=21.1.2
+gunicorn==20.1.0

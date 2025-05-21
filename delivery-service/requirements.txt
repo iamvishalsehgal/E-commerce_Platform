@@ -1,1 +1,4 @@
-google-cloud-pubsub
+flask
+sqlalchemy
+sqlalchemy-utils
+sqlalchemy-bigquery

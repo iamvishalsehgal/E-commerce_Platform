@@ -1,0 +1,90 @@
+main:
+  params: [input]
+  steps:
+    - initResultObject:
+        assign:
+            - result: {}
+    - initRegisterDeliveryURLVar:
+        assign:
+          - RegisterDeliveryURL: ${"<url-to-delivery-register-function>?orderid=" + input.orderId + "&senderinfo=" + input.senderInfo + "&receiverinfo=" + input.receiverInfo}
+    - registerDelivery:
+        call: http.get
+        args:
+          url: ${RegisterDeliveryURL}
+        result: RegisterDeliveryRes
+    - conditionalOnDeliveryRegistration:
+        switch:
+          - condition: ${RegisterDeliveryRes.code != 200}
+            steps:
+              - deliveryRequestReject:
+                  return: ${"Sorry, there's an error. The registration for delivery is failed."}
+    - initGenerateShippingLabelURLVar:
+        assign:
+          - GenerateShippingLabelURL: ${"<url-to-generate-shipping-label-function>?orderid=" + input.orderId + "&senderinfo=" + input.senderInfo + "&receiverinfo=" + input.receiverInfo + "&deliveryid=" + RegisterDeliveryRes.body.delivery_id}
+    - generateShippingLabel:
+        call: http.get
+        args:
+          url: ${GenerateShippingLabelURL}
+        result: GenerateShippingLabelRes
+    - conditionalOnGenerateShippingLabel:
+        switch:
+          - condition: ${GenerateShippingLabelRes.code != 200}
+            steps:
+              - shippingLabelGenerationFail:
+                  return: ${"Sorry, there's an error. The step to generate shipping label is failed."}
+    - registerTracking:
+        call: http.post
+        args:
+          url: <url-to-tracking-service>/tracking/register
+          body:
+            "id": ${GenerateShippingLabelRes.body.tracking_id}
+            "latitude": "51.688023"
+            "longitude": "5.298669"
+          timeout: 1800
+        result: RegisterTrackingRes
+    - conditionalOnTracking:
+        switch:
+          - condition: ${RegisterTrackingRes.code != 200}
+            steps:
+                - trackingRequestReject:
+                    assign:
+                        - result.tracking_status: "Failed"
+          - condition: ${RegisterTrackingRes.code == 200}
+            steps:
+                - trackingRequestAccepted:
+                    assign:
+                        - result.tracking_status: "Active"
+    - initUpdateDeliveryStatusURLVar:
+        assign:
+          - UpdateDeliveryStatusURL: ${"<url-to-order-service>/orders/" + input.orderId + "/delivery?status=delivery_requested"}
+    - updateDeliveryStatus:
+        call: http.put
+        args:
+          url: ${UpdateDeliveryStatusURL}
+        result: UpdateDeliveryStatusRes
+    - conditionalOnDeliveryStatus:
+        switch:
+          - condition: ${UpdateDeliveryStatusRes.code != 200}
+            steps:
+                - updateDeliveryStatusReject:
+                    assign:
+                        - result.update_delivery_status: "Failed"
+          - condition: ${UpdateDeliveryStatusRes.code == 200}
+            steps:
+                - updateDeliveryStatusAccepted:
+                    assign:
+                        - result.update_delivery_status: "Success"
+    - assignMessage:
+        assign:
+          - resultMsg:
+              message: "Delivery request accepted."
+              data:
+                order_id: ${input.orderId}
+                sender_info: ${input.senderInfo}
+                receiver_info: ${input.receiverInfo}
+                delivery_id: ${RegisterDeliveryRes.body.delivery_id}
+                tracking_id: ${GenerateShippingLabelRes.body.tracking_id}
+              tracking_status: ${result.tracking_status}
+              update_deliery_status: ${result.update_delivery_status}
+    - return_result:
+        return: ${resultMsg}
