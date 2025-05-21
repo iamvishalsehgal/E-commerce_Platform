@@ -5,9 +5,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google.cloud import pubsub_v1
 from concurrent.futures import TimeoutError
-from db import Base, engine, Session
 from resources.inventory import Inventory
 import logging
+from db import Base, engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,8 +21,7 @@ Base.metadata.create_all(engine)
 PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
 ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
 INVENTORY_EVENTS_TOPIC = os.environ.get('INVENTORY_EVENTS_TOPIC', 'inventory-events')
-INVENTORY_SUBSCRIPTION = os.environ.get('INVENTORY_SUBSCRIPTION', 'inventory-order-events-sub')
-
+INVENTORY_SUBSCRIPTION = "inventory-order-events-sub"
 # Publisher client for inventory events
 publisher = pubsub_v1.PublisherClient()
 inventory_topic_path = publisher.topic_path(PROJECT_ID, INVENTORY_EVENTS_TOPIC)
@@ -46,64 +45,96 @@ def update_stock(product_id):
 
 @app.route("/inventory/<product_id>/deduct", methods=["POST"])
 def deduct_inventory(product_id):
-    return Inventory.deduct(product_id)
+    quantity = request.json.get("quantity", 1)
+    success, remaining = Inventory.deduct_inventory(product_id, quantity)  
+    if success:
+        return jsonify({
+            "status": "success", 
+            "message": f"Deducted {quantity}. Remaining: {remaining}"
+        }), 200
+    else:
+        return jsonify({
+            "status": "failure",
+            "message": "Failed to deduct inventory"
+        }), 400
 
-# Event handling logic
 def process_order_event(message):
-    """Process events from the order service"""
+    """Process Pub/Sub messages from order-events topic without timestamp filtering."""
+    logger.info(f"[PUBSUB] Received message ID: {message.message_id}")
+    
     try:
-        event_data = message.data.decode('utf-8')
-        logger.info(f"Received order event: {event_data}")
+        raw_data = message.data.decode('utf-8')
+        logger.debug(f"[DEBUG] Raw message data: {raw_data}")
         
-        # Parse event type and data
-        if ':' in event_data:
-            event_type, order_id = event_data.split(':', 1)
-            
-            # Handle different event types
-            if event_type == "OrderCreated":
-                # In choreography, we'd retrieve order details and act on them
-                # This would typically be an async call to the Order API or from event payload
-                logger.info(f"Processing order creation for Order ID: {order_id}")
-                # For now, we're just logging the event
-                
-            elif event_type == "OrderValidated":
-                # In real implementation, we might update inventory reservation
-                logger.info(f"Order {order_id} has been validated")
-                
-            elif event_type == "OrderCancelled":
-                # In real implementation, release reserved inventory
-                logger.info(f"Order {order_id} has been cancelled - inventory should be restored")
-                
-        # Acknowledge message
-        message.ack()
+        event = json.loads(raw_data)
+        logger.debug(f"[DEBUG] Parsed event:\n{json.dumps(event, indent=2)}")
+
+        # Validate event type - process all OrderValidated events regardless of timestamp
+        if event.get('event') != 'OrderValidated':
+            logger.warning(f"Ignoring non-OrderValidated event: {event.get('event')}")
+            message.ack()
+            return
+
+        # Validate required fields
+        required_fields = ['product_id', 'quantity']
+        missing_fields = [field for field in required_fields if field not in event]
+        if missing_fields:
+            logger.error(f"Missing required fields {missing_fields} in event: {event}")
+            message.nack()
+            return
+
+        # Extract parameters
+        product_id = event['product_id']
+        quantity = int(event['quantity'])
+        order_id = event.get('order_id', 'unknown')
+        
+        logger.info(f"Processing immediate deduction - Product: {product_id}, Qty: {quantity}, Order: {order_id}")
+
+        # Execute deduction without any time-based filters
+        success, remaining = Inventory.deduct_inventory(product_id, quantity, order_id)
+        
+        if success:
+            logger.info(f"Deduction successful! Remaining quantity: {remaining}")
+            message.ack()
+        else:
+            logger.error("Deduction failed!")
+            message.nack()
+
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}")
+        logger.error(f"Invalid message content: {raw_data}")
+        message.nack()
+        
+    except ValueError as e:
+        logger.error(f"Invalid quantity format: {str(e)}")
+        message.nack()
+        
+    except KeyError as e:
+        logger.error(f"Missing key in event data: {str(e)}")
+        message.nack()
         
     except Exception as e:
-        logger.error(f"Error processing event: {str(e)}")
-        # Handle error, possibly nack the message
+        logger.error(f"Unexpected error processing message: {str(e)}", exc_info=True)
         message.nack()
 
 def start_subscriber():
-    """Start the Pub/Sub subscriber in a separate thread"""
-    subscriber = pubsub_v1.SubscriberClient()
-    subscription_path = subscriber.subscription_path(PROJECT_ID, INVENTORY_SUBSCRIPTION)
-    
-    logger.info(f"Starting subscriber on {subscription_path}")
-    
-    streaming_pull_future = subscriber.subscribe(
-        subscription_path, callback=process_order_event
-    )
-    
-    # Keep the thread alive
     try:
-        streaming_pull_future.result()
-    except TimeoutError:
-        streaming_pull_future.cancel()
-        streaming_pull_future.result()
+        logger.info("[SUBSCRIBER-STARTED] Starting Pub/Sub subscriber thread...")
+        subscriber = pubsub_v1.SubscriberClient()
+        subscription_path = subscriber.subscription_path(PROJECT_ID, INVENTORY_SUBSCRIPTION)
+        logger.info(f"[SUBSCRIBER-ACTIVE] Subscribing to: {subscription_path}")
+        
+        streaming_pull_future = subscriber.subscribe(
+            subscription_path, callback=process_order_event
+        )
+        logger.info("Subscriber is running...")
+        streaming_pull_future.result()  
+
     except Exception as e:
-        logger.error(f"Exception in subscriber thread: {str(e)}")
+        logger.error(f"[SUBSCRIBER-FAILED] Subscriber thread crashed: {str(e)}", exc_info=True)
+        raise  
 
 if __name__ == '__main__':
-    # Start the subscriber in a background thread
     subscriber_thread = threading.Thread(target=start_subscriber)
     subscriber_thread.daemon = True
     subscriber_thread.start()

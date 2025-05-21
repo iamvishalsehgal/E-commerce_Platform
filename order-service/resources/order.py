@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 from flask import jsonify, request
@@ -7,12 +7,12 @@ from daos.order_dao import OrderDAO
 from db import Session
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 # Pub/Sub configuration
-PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
-ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
-
+PROJECT_ID = os.environ.get("PROJECT_ID", "de2024-435420")
+ORDER_EVENTS_TOPIC = os.environ.get("ORDER_EVENTS_TOPIC", "order-events")
 publisher = pubsub_v1.PublisherClient()
 topic_path = publisher.topic_path(PROJECT_ID, ORDER_EVENTS_TOPIC)
 
@@ -22,36 +22,50 @@ class Order:
         session = Session()
         try:
             # Generate sequential ID if not provided
-            order_id = body.get('id', session.query(OrderDAO).count() + 1)
-            
-            order = OrderDAO(
-                id=order_id,
+            if 'id' not in body:
+                last_order = session.query(OrderDAO).order_by(OrderDAO.id.desc()).first()
+                body['id'] = 1 if not last_order else last_order.id + 1
+
+            # Handle order date 
+            # This removes any timestamp restrictions
+            order_date = datetime.now(timezone.utc)
+
+            # Check for existing order ID
+            existing_order = session.query(OrderDAO).get(body['id'])
+            if existing_order:
+                return jsonify({'error': f'Order ID {body["id"]} already exists'}), 409
+
+            new_order = OrderDAO(
+                id=body['id'],
                 customer_id=body['customer_id'],
                 product_id=body['product_id'],
                 quantity=body['quantity'],
-                order_date=datetime.fromisoformat(body['order_date']),
+                order_date=order_date,
                 status="created"
             )
-            
-            session.add(order)
+
+            session.add(new_order)
             session.commit()
-            
-            # Publish detailed order created event with full order details
+            session.refresh(new_order)
+
+            # Publish OrderCreated event to trigger processing immediately
             event_data = json.dumps({
                 "event": "OrderCreated",
-                "order_id": order_id,
-                "customer_id": body['customer_id'],
-                "product_id": body['product_id'],
-                "quantity": body['quantity'],
-                "timestamp": datetime.now().isoformat()
+                "order_id": new_order.id,
+                "customer_id": new_order.customer_id,
+                "product_id": new_order.product_id,
+                "quantity": new_order.quantity,
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             publisher.publish(topic_path, event_data.encode('utf-8'))
-            
-            return jsonify({'order_id': order.id}), 200
-            
+            logger.info(f"Published OrderCreated event for order {new_order.id}")
+
+            return jsonify({'order_id': new_order.id}), 200
+
         except Exception as e:
             session.rollback()
-            return jsonify({'error': str(e)}), 400
+            logger.error(f"Order creation failed: {str(e)}", exc_info=True)
+            return jsonify({'error': 'Order creation failed', 'details': str(e)}), 400
         finally:
             session.close()
 
@@ -78,9 +92,12 @@ class Order:
         try:
             order = session.query(OrderDAO).get(o_id)
             if order:
+                logger.info(f"Updating order {o_id} status from {order.status} to {new_status}")
                 previous_status = order.status
                 order.status = new_status
                 session.commit()
+                
+                logger.info(f"Publishing OrderStatusChanged event for order {o_id}")
                 
                 # Publish detailed status change event
                 event_data = json.dumps({
@@ -96,6 +113,7 @@ class Order:
                 
                 # Special case events
                 if new_status == "validated":
+                    logger.info(f"Publishing OrderValidated event for order {o_id}")
                     validated_event = json.dumps({
                         "event": "OrderValidated",
                         "order_id": o_id,
@@ -103,8 +121,8 @@ class Order:
                         "quantity": order.quantity
                     })
                     publisher.publish(topic_path, validated_event.encode('utf-8'))
-                    
                 elif new_status == "cancelled":
+                    logger.info(f"Publishing OrderCancelled event for order {o_id}")
                     cancelled_event = json.dumps({
                         "event": "OrderCancelled",
                         "order_id": o_id,
@@ -112,10 +130,11 @@ class Order:
                         "quantity": order.quantity
                     })
                     publisher.publish(topic_path, cancelled_event.encode('utf-8'))
-                
                 return jsonify({'status': new_status}), 200
+            logger.warning(f"Order {o_id} not found for status update")
             return jsonify({'error': 'Order not found'}), 404
         except Exception as e:
+            logger.error(f"Error updating order {o_id}: {str(e)}", exc_info=True)
             session.rollback()
             return jsonify({'error': str(e)}), 400
         finally:
@@ -127,23 +146,32 @@ class Order:
         try:
             order = session.query(OrderDAO).get(order_id)
             if order:
-                # Validate allowed status transitions
-                valid_statuses = ["shipped", "out_for_delivery", "delivered"]
+                valid_statuses = [
+                    "delivery_requested", 
+                    "shipped",
+                    "out_for_delivery", 
+                    "delivered",
+                    "failed",
+                    "cancelled" 
+                ]
                 if new_status not in valid_statuses:
                     return jsonify({"error": "Invalid delivery status"}), 400
                 
                 previous_status = order.status
-                order.status = new_status
+                order.status = new_status 
                 session.commit()
                 
-                # Publish delivery event
+                event_name = "Order" + "".join(
+                    [word.capitalize() for word in new_status.split("_")]
+                )
+                
                 event_data = json.dumps({
-                    "event": f"Order{new_status.capitalize()}",
+                    "event": event_name,
                     "order_id": order_id,
                     "previous_status": previous_status,
                     "customer_id": order.customer_id,
                     "product_id": order.product_id,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 })
                 publisher.publish(topic_path, event_data.encode('utf-8'))
                 

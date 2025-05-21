@@ -1,3 +1,5 @@
 requests
 flask
 google-cloud-pubsub
+functions-framework
+python-dateutil

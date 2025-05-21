@@ -6,8 +6,13 @@ from google.cloud import pubsub_v1
 from daos.inventory_dao import InventoryDAO
 from db import Session
 import logging
+from google.cloud import bigquery
 
 logger = logging.getLogger(__name__)
+
+PROJECT_ID = "de2024-435420"
+DATASET_ID = "group2_inventorydb"
+TABLE_ID = "inventory"
 
 # Pub/Sub configuration
 publisher = pubsub_v1.PublisherClient()
@@ -29,7 +34,7 @@ class Inventory:
                 product_id=product_id,
                 quantity=body['quantity'],
                 location=body['location'],
-                last_updated=datetime.now(timezone.utc)
+                last_updated=datetime.now(timezone.utc).astimezone(timezone.utc)
             )
             session.add(new_inventory)
             session.commit()
@@ -72,7 +77,7 @@ class Inventory:
                 previous_quantity = inventory.quantity
                 inventory.quantity = quantity
                 inventory.location = location
-                inventory.last_updated = datetime.now(timezone.utc)
+                inventory.last_updated = datetime.now(timezone.utc).astimezone(timezone.utc)
                 session.commit()
                 
                 # Publish inventory updated event
@@ -104,91 +109,108 @@ class Inventory:
             session.close()
 
     @staticmethod
-    def deduct(product_id):
-        session = Session()
+    def _publish_deduction_event(event_type, product_id, deducted, remaining, order_id=None, error_msg=None):
+        """Helper method to publish inventory deduction events - without time filters"""
+        event_data = {
+            "event": event_type,
+            "product_id": product_id,
+            "deducted_quantity": deducted,
+            "remaining_quantity": remaining,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "order_id": order_id,
+            "immediate_processing": True  
+        }
+        
+        if error_msg:
+            event_data["error"] = error_msg
+        
         try:
-            data = request.get_json()
-            deduct_quantity = data['quantity']
-            inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
-            
-            if inventory:
-                if inventory.quantity < deduct_quantity:
-                    # Publish insufficient inventory event
-                    event_data = json.dumps({
-                        "event": "InsufficientInventory",
-                        "product_id": product_id,
-                        "requested": deduct_quantity,
-                        "available": inventory.quantity
-                    })
-                    publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
-                    
-                    return jsonify({"error": "Insufficient stock"}), 400
-                    
-                previous_quantity = inventory.quantity
-                inventory.quantity -= deduct_quantity
-                inventory.last_updated = datetime.now(timezone.utc)
-                session.commit()
-                
-                # Publish inventory deducted event
-                event_data = json.dumps({
-                    "event": "InventoryDeducted",
-                    "product_id": product_id,
-                    "deducted": deduct_quantity,
-                    "previous_quantity": previous_quantity,
-                    "new_quantity": inventory.quantity
-                })
-                publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
-                
-                return jsonify({"product_id": product_id, "new_quantity": inventory.quantity}), 200
-                
-            return jsonify({"error": "Product not found"}), 404
+            publisher.publish(inventory_topic_path, json.dumps(event_data).encode('utf-8'))
+            logger.debug(f"Published {event_type} event for {product_id}")
         except Exception as e:
-            session.rollback()
-            return jsonify({"error": str(e)}), 400
-        finally:
-            session.close()
+            logger.error(f"Failed to publish {event_type} event: {str(e)}")
 
     @staticmethod
-    def reserve_inventory(product_id, quantity, order_id):
-        """Reserve inventory for an order without immediately deducting"""
-        session = Session()
+    def deduct_inventory(product_id, deduct_quantity, order_id=None):
+        """
+        Deduct inventory in a transactional way with proper error handling and event publishing.
+        No timestamp validation or time-based restrictions.
+        """
+        bq_client = None
         try:
-            inventory = session.query(InventoryDAO).filter(InventoryDAO.product_id == product_id).first()
-            
-            if not inventory:
-                logger.warning(f"Product {product_id} not found for reservation")
-                return False, "Product not found"
-                
-            if inventory.quantity < quantity:
-                logger.warning(f"Insufficient stock for product {product_id}: requested {quantity}, available {inventory.quantity}")
-                
-                # Publish insufficient inventory event
-                event_data = json.dumps({
-                    "event": "ReservationFailed",
-                    "product_id": product_id,
-                    "order_id": order_id,
-                    "requested": quantity,
-                    "available": inventory.quantity,
-                    "reason": "insufficient_stock"
-                })
-                publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
-                
-                return False, "Insufficient stock"
-            
-            # We don't actually reduce quantity yet, just publish a reservation event
-            event_data = json.dumps({
-                "event": "InventoryReserved",
-                "product_id": product_id,
-                "order_id": order_id,
-                "quantity": quantity,
-                "available": inventory.quantity
-            })
-            publisher.publish(inventory_topic_path, event_data.encode('utf-8'))
-            
-            return True, "Inventory reserved"
-            
+            if deduct_quantity <= 0:
+                logger.error(f"Invalid deduction quantity: {deduct_quantity}")
+                return False, 0
+
+            bq_client = bigquery.Client()
+            table_ref = f"{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}"
+
+            # Use transaction for atomic operation
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("product_id", "STRING", product_id),
+                    bigquery.ScalarQueryParameter("deduct_quantity", "INT64", deduct_quantity)
+                ]
+            )
+
+            # Atomic update operation - no timestamp checks
+            update_query = f"""
+                UPDATE `{table_ref}`
+                SET quantity = GREATEST(quantity - @deduct_quantity, 0),
+                    last_updated = CURRENT_TIMESTAMP()
+                WHERE product_id = @product_id
+            """
+            update_job = bq_client.query(update_query, job_config=job_config)
+            update_job.result()
+
+            if update_job.num_dml_affected_rows == 0:
+                logger.warning(f"No inventory affected - product {product_id} not found or quantity zero")
+                Inventory._publish_deduction_event(
+                    "DeductionFailed",
+                    product_id,
+                    deduct_quantity,
+                    0,
+                    order_id,
+                    "no_inventory_found"
+                )
+                return False, 0
+
+            # Get updated quantity
+            get_query = f"""
+                SELECT quantity 
+                FROM `{table_ref}`
+                WHERE product_id = @product_id
+            """
+            get_job = bq_client.query(get_query, job_config=job_config)
+            result = next(get_job.result())
+            remaining_quantity = result.quantity
+
+            # Publish success event - no time constraints
+            Inventory._publish_deduction_event(
+                "InventoryDeducted",
+                product_id,
+                deduct_quantity,
+                remaining_quantity,
+                order_id
+            )
+
+            logger.info(f"Deducted {deduct_quantity} from {product_id}. Remaining: {remaining_quantity}")
+            return True, remaining_quantity
+
         except Exception as e:
-            logger.error(f"Error reserving inventory: {str(e)}")
-            return False, str(e)
+            logger.error(f"Deduction failed for {product_id}: {str(e)}", exc_info=True)
+            Inventory._publish_deduction_event(
+                "DeductionFailed",
+                product_id,
+                deduct_quantity,
+                0,
+                order_id,
+                str(e)
+            )
+            return False, 0
         finally:
-            session.close()
+            if bq_client:
+                try:
+                    bq_client.close()
+                except Exception as e:
+                    logger.warning(f"Error closing BigQuery client: {str(e)}")

@@ -5,9 +5,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google.cloud import pubsub_v1
 from concurrent.futures import TimeoutError
-from db import Base, engine
 from resources.order import Order
 import logging
+from db import Base, engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +22,6 @@ PROJECT_ID = os.environ.get('PROJECT_ID', 'de2024-435420')
 ORDER_EVENTS_TOPIC = os.environ.get('ORDER_EVENTS_TOPIC', 'order-events')
 INVENTORY_EVENTS_TOPIC = os.environ.get('INVENTORY_EVENTS_TOPIC', 'inventory-events')
 ORDER_SUBSCRIPTION = os.environ.get('ORDER_SUBSCRIPTION', 'order-inventory-events-sub')
-
 # CORE: Order Management
 @app.route("/orders", methods=["POST"])
 def create_order():
@@ -54,12 +53,14 @@ def update_delivery(order_id):
 
 # Event handling for inventory events
 def process_inventory_event(message):
-    """Process events from the inventory service"""
+    """Process events from the inventory service - without timestamp filtering"""
     try:
         event_data = json.loads(message.data.decode('utf-8'))
         logger.info(f"Received inventory event: {event_data}")
         
         event_type = event_data.get("event")
+        
+        logger.info(f"Processing inventory event type {event_type} without time restriction")
         
         # Handle different inventory event types
         if event_type == "InventoryReserved":
@@ -82,27 +83,36 @@ def process_inventory_event(message):
             # This could affect multiple orders - we might get the order ID from the event
             # or we might need to look up orders that need this product
             logger.info(f"Insufficient inventory notification: {event_data}")
+            
+        elif event_type == "InventoryDeducted":
+            # Handle successful inventory deduction - process immediately
+            order_id = event_data.get("order_id")
+            if order_id:
+                logger.info(f"Inventory deducted successfully for order {order_id}")
+                Order.update_status(order_id, "processing")
+                
+        elif event_type == "DeductionFailed":
+            order_id = event_data.get("order_id")
+            if order_id:
+                logger.info(f"Inventory deduction failed for order {order_id}")
+                Order.update_status(order_id, "inventory_failed")
         
-        # Acknowledge message
         message.ack()
         
     except Exception as e:
         logger.error(f"Error processing inventory event: {str(e)}")
-        # Handle error, possibly nack the message
         message.nack()
 
 def start_subscriber():
     """Start the Pub/Sub subscriber in a separate thread"""
     subscriber = pubsub_v1.SubscriberClient()
-    subscription_path = subscriber.subscription_path(PROJECT_ID, ORDER_SUBSCRIPTION)
-    
+    subscription_path = subscriber.subscription_path(PROJECT_ID, ORDER_SUBSCRIPTION)    
     logger.info(f"Starting subscriber for inventory events on {subscription_path}")
     
     streaming_pull_future = subscriber.subscribe(
         subscription_path, callback=process_inventory_event
     )
     
-    # Keep the thread alive
     try:
         streaming_pull_future.result()
     except TimeoutError:
@@ -112,7 +122,6 @@ def start_subscriber():
         logger.error(f"Exception in subscriber thread: {str(e)}")
 
 if __name__ == '__main__':
-    # Start the subscriber in a background thread
     subscriber_thread = threading.Thread(target=start_subscriber)
     subscriber_thread.daemon = True
     subscriber_thread.start()
