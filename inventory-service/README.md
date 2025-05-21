@@ -1,4 +1,5 @@
 Steps to deploy the **Inventory service ** on Google Cloud Run. The service handles 4 operations
+1. create inventory
 2. add into inventory
 3. update inventrory
 4. deduct
