@@ -1,39 +1,31 @@
-# Inventory Service
-### Deployment to GCP
-1. Create a BigQuery dataset `group2_inventorydb` in your project.
-2. Open port 5004 in the firewall:
-   ```bash
-   gcloud compute firewall-rules create flask-port-5004 --allow tcp:5004
-
+Steps to deploy the **Inventory service ** on Google Cloud Run. The service handles 4 operations
+2. add into inventory
+3. update inventrory
+4. deduct
 
 
 # Create Inventory
 curl -X POST https://inventory-service-1070510678521.us-central1.run.app/inventory \
 -H "Content-Type: application/json" \
 -d '{
-  "product_id": "laptop",
-  "quantity": 50,
-  "location": "Denbosch"
+  "product_id": "phone",
+  "quantity": 100,
+  "location": "Amsterdam"
 }'
 
-# Create order 
-curl -X POST https://order-service-1070510678521.us-central1.run.app/orders \
+# check inventory
+curl https://inventory-service-1070510678521.us-central1.run.app/inventory/phone
+
+# update inventory 
+curl -X PUT https://inventory-service-1070510678521.us-central1.run.app/inventory/phone \ 
 -H "Content-Type: application/json" \
 -d '{
-  "customer_id": "vishal",
-  "product_id": "laptop",
-  "quantity": 3
+  "quantity": 75,
+  "location": "Rotterdam"
 }'
 
-# Validate order 
-curl -X PUT https://order-service-1070510678521.us-central1.run.app/orders/{order_id}/validate
-
-
-# Check order status
-curl https://order-service-1070510678521.us-central1.run.app/orders/{order_id}
-
-# to cancel
-curl -X PUT https://order-service-1070510678521.us-central1.run.app/orders/{order_id}/cancel
-
-# change delivery status 
-curl -X PUT "https://order-service-1070510678521.us-central1.run.app/orders/{order_id}/delivery?status=shipped"
+# deduct inventory by forcing a pub/sub event via rest api
+curl -X POST \
+  https://inventory-service-1070510678521.us-central1.run.app/inventory/phone/deduct \
+  -H "Content-Type: application/json" \
+  -d '{"quantity": 2}'
