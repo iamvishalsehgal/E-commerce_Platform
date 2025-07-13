@@ -1,46 +1,143 @@
-# Assignment 2 for Advanced Data Architecture - Group 2
+Overview
 
-### Introduction
-This is the repo for ADA course's assignment 2 - Implementation of the Design.
+This repository contains the implementation for Assignment 2 of the Advance Data Architecture (ADA) course, developed by Group 2. It focuses on building a part of an E-commerce platform, covering the design and deployment of microservices across three domains: Order, Product, and Delivery.
 
-This is a part of an E-commerce platform.
+Domains
 
-### Domains
+The project is structured around three domains:
 
-There are 3 domains in this part: order, product, and delivery. The first two domains are core domains, and the third one is a support domain.
 
-### Microservices and Operations
-4 microservices and 14 operations are implemented.
-- Order Domain (Core)
-  - Order Service (RESTful service)
-    - create_order
-    - get_status
-    - cancel_order
-    - validate_order
-    - update_delivery
-- Product Domain (Core)
-  - Product Service (RESTful service)
-    - add_product
-    - check_stock
-    - update_stock
-    - deduct_inventory
-- Delivery Domain (Support)
-  - Inventory Service (Faas)
-    - delivery-request
-    - shipping-label-generate
-  - Tracking Service (RESTful service)
-    - register_tracking
-    - get_tracking_status
-    - update_tracking_status
 
-### Orchestration
-There is one workflow to handle delivery register. The script for this workflow is in `\orchestration\delivery-register-process.yaml`.
 
-Main steps in this workflow:
-1. Register delivery
-2. Generate shipping label
-3. Register tracking
-4. Update delivery status
 
-### How to deploy the services?
-See the `README.md` files directly under the folders of the services.
+Order (Core Domain): Manages order-related operations.
+
+
+
+Product (Core Domain): Handles product inventory and stock management.
+
+
+
+Delivery (Support Domain): Supports delivery and tracking functionalities.
+
+Microservices and Operations
+
+The implementation includes 4 microservices with a total of 14 operations:
+
+Order Domain (Core)
+
+
+
+
+
+Order Service (RESTful Service):
+
+
+
+
+
+create_order: Creates a new order.
+
+
+
+get_status: Retrieves the status of an order.
+
+
+
+cancel_order: Cancels an existing order.
+
+
+
+validate_order: Validates order details.
+
+
+
+update_delivery: Updates delivery information for an order.
+
+Product Domain (Core)
+
+
+
+
+
+Product Service (RESTful Service):
+
+
+
+
+
+add_product: Adds a new product to the catalog.
+
+
+
+check_stock: Checks product stock availability.
+
+
+
+update_stock: Updates stock levels.
+
+
+
+deduct_inventory: Deducts inventory upon order fulfillment.
+
+Delivery Domain (Support)
+
+
+
+
+
+Inventory Service (FaaS):
+
+
+
+
+
+delivery-request: Initiates a delivery request.
+
+
+
+shipping-label-generate: Generates a shipping label.
+
+
+
+Tracking Service (RESTful Service):
+
+
+
+
+
+register_tracking: Registers tracking for a delivery.
+
+
+
+get_tracking_status: Retrieves the current tracking status.
+
+
+
+update_tracking_status: Updates the tracking status.
+
+Orchestration
+
+A workflow for delivery registration is implemented in the file \orchestration\delivery-register-process.yaml. The main steps include:
+
+
+
+
+
+Register delivery
+
+
+
+Generate shipping label
+
+
+
+Register tracking
+
+
+
+Update delivery status
+
+Deployment
+
+For detailed instructions on deploying each microservice, refer to the README.md files located in the respective service folders.
